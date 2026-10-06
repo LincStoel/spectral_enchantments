@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.linc.broadbreaker.harness.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "client.MinecraftMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -1,0 +1,23 @@
+modLoader = "javafml"
+loaderVersion = "[4,)"
+license = "All Rights Reserved"
+
+[[mods]]
+modId = "broad_breaker_harness"
+version = "0.0.0"
+displayName = "Broad Breaker Compat Harness"
+description = '''
+Dev-only harness for Broad Breaker compatibility testing: lets the server tell
+bot clients to mine, sneak, toggle Iris shaders, probe state and take screenshots.
+Loaded only by the compat runs; never shipped.
+'''
+
+[[mixins]]
+config = "broad_breaker_harness.mixins.json"
+
+[[dependencies.broad_breaker_harness]]
+modId = "broad_breaker"
+type = "required"
+versionRange = "[0,)"
+ordering = "AFTER"
+side = "BOTH"
