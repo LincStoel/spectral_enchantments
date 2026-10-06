@@ -18,7 +18,9 @@ public record EnchantmentEnabledCondition(Which enchantment) implements IConditi
 
     public enum Which implements StringRepresentable {
         BROAD_BREAKER("broad_breaker"),
-        SPECTRAL_WEAPON("spectral_weapon");
+        SPECTRAL_WEAPON("spectral_weapon"),
+        FAR_MINER("far_miner"),
+        GATHER("gather");
 
         static final Codec<Which> CODEC = StringRepresentable.fromEnum(Which::values);
 
@@ -39,6 +41,8 @@ public record EnchantmentEnabledCondition(Which enchantment) implements IConditi
         return switch (enchantment) {
             case BROAD_BREAKER -> SpectralConfig.broadBreakerEnabled();
             case SPECTRAL_WEAPON -> SpectralConfig.spectralWeaponEnabled();
+            case FAR_MINER -> SpectralConfig.farMinerEnabled();
+            case GATHER -> SpectralConfig.gatherEnabled();
         };
     }
 

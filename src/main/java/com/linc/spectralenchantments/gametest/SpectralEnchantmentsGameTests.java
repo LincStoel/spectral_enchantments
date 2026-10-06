@@ -188,6 +188,8 @@ public final class SpectralEnchantmentsGameTests {
     public static void configSwitchesControlAvailability(GameTestHelper helper) {
         checkAvailability(helper, ModEnchantments.BROAD_BREAKER, SpectralConfig.broadBreakerEnabled(), Items.DIAMOND_PICKAXE);
         checkAvailability(helper, ModEnchantments.SPECTRAL_WEAPON, SpectralConfig.spectralWeaponEnabled(), Items.DIAMOND_SWORD);
+        checkAvailability(helper, ModEnchantments.FAR_MINER, SpectralConfig.farMinerEnabled(), Items.DIAMOND_PICKAXE);
+        checkAvailability(helper, ModEnchantments.GATHER, SpectralConfig.gatherEnabled(), Items.DIAMOND_SWORD);
         helper.succeed();
     }
 

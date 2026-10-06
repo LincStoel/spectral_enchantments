@@ -2,6 +2,8 @@
   "replace": false,
   "values": [
     "#spectral_enchantments:non_treasure/broad_breaker",
-    "#spectral_enchantments:non_treasure/spectral_weapon"
+    "#spectral_enchantments:non_treasure/spectral_weapon",
+    "#spectral_enchantments:non_treasure/far_miner",
+    "#spectral_enchantments:non_treasure/gather"
   ]
 }

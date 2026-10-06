@@ -1,0 +1,9 @@
+{
+  "values": [
+    "#minecraft:enchantable/mining",
+    {
+      "id": "#c:tools/mining_tool",
+      "required": false
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "description": {
+    "translate": "enchantment.spectral_enchantments.far_miner"
+  },
+  "supported_items": {
+    "type": "neoforge:and",
+    "values": [
+      "#spectral_enchantments:enchantable/far_miner",
+      {
+        "type": "neoforge:not",
+        "value": "#spectral_enchantments:far_miner_excluded"
+      }
+    ]
+  },
+  "exclusive_set": "spectral_enchantments:broad_breaker",
+  "weight": 2,
+  "max_level": 3,
+  "min_cost": {
+    "base": 15,
+    "per_level_above_first": 9
+  },
+  "max_cost": {
+    "base": 65,
+    "per_level_above_first": 9
+  },
+  "anvil_cost": 4,
+  "slots": [
+    "mainhand"
+  ]
+}

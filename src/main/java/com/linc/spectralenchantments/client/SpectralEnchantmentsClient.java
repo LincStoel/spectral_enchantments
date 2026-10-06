@@ -24,10 +24,14 @@ public final class SpectralEnchantmentsClient {
         modBus.addListener((EntityRenderersEvent.RegisterRenderers event) ->
                 event.registerEntityRenderer(ModEntities.SPECTRAL_WEAPON.get(), NoopRenderer::new));
         modBus.addListener(SpectralSlotOverlay::register);
-        NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> SpectralSessions.tick());
+        NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> {
+            SpectralSessions.tick();
+            FarMinerClient.tick();
+        });
         NeoForge.EVENT_BUS.addListener(SpectralSlotOverlay::tick);
         NeoForge.EVENT_BUS.addListener(AreaOutlineRenderer::render);
         NeoForge.EVENT_BUS.addListener(SpectralToolRenderer::render);
+        NeoForge.EVENT_BUS.addListener(FarMinerRenderer::render);
         NeoForge.EVENT_BUS.addListener(SpectralWeaponRenderer::render);
     }
 }

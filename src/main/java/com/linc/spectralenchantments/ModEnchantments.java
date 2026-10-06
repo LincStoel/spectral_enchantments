@@ -10,6 +10,10 @@ public final class ModEnchantments {
             ResourceKey.create(Registries.ENCHANTMENT, SpectralEnchantments.id("broad_breaker"));
     public static final ResourceKey<Enchantment> SPECTRAL_WEAPON =
             ResourceKey.create(Registries.ENCHANTMENT, SpectralEnchantments.id("spectral_weapon"));
+    public static final ResourceKey<Enchantment> FAR_MINER =
+            ResourceKey.create(Registries.ENCHANTMENT, SpectralEnchantments.id("far_miner"));
+    public static final ResourceKey<Enchantment> GATHER =
+            ResourceKey.create(Registries.ENCHANTMENT, SpectralEnchantments.id("gather"));
 
     private ModEnchantments() {}
 }

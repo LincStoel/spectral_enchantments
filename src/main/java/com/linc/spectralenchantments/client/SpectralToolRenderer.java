@@ -9,6 +9,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 import org.joml.Matrix3f;
@@ -23,7 +24,7 @@ import org.joml.Vector3f;
  * strikes the face.
  */
 final class SpectralToolRenderer {
-    private static final float SWING_PERIOD_TICKS = 9f;
+    static final float SWING_PERIOD_TICKS = 9f;
     // Picks lead with a prong; shovels jab more steeply so the blade tip reaches the face.
     private static final float PICK_WIND_UP = 45f;
     private static final float PICK_STRIKE = -28f;
@@ -58,32 +59,45 @@ final class SpectralToolRenderer {
             Quaternionf frame = faceFrame(session.face, mc.level.getEntity(session.entityId));
             float elapsed = now - session.startTick;
             float drift = session.active() ? 0f : (now - session.endTick) / session.fadeTicks();
-            float windUp = session.shovel ? SHOVEL_WIND_UP : PICK_WIND_UP;
-            float strike = session.shovel ? SHOVEL_STRIKE : PICK_STRIKE;
             int tint = GhostTint.of(session.ghostTool, now);
 
             for (BlockPos pos : session.extras) {
                 float phase = Mth.frac((elapsed + phaseOffset(pos)) / SWING_PERIOD_TICKS);
-                Vec3 normal = Vec3.atLowerCornerOf(session.face.getNormal());
-                Vec3 faceCenter = Vec3.atCenterOf(pos).add(normal.scale(0.5));
-                float near = GhostItemDraw.nearFade(faceCenter.add(normal.scale(GRIP.z)).distanceTo(cam));
-
-                poseStack.pushPose();
-                poseStack.translate(faceCenter.x - cam.x, faceCenter.y - cam.y, faceCenter.z - cam.z);
-                poseStack.mulPose(frame);
-                // After a break the ghosts drift back out of the hole as they dissolve.
-                poseStack.translate(GRIP.x, GRIP.y + drift * 0.25f, GRIP.z + drift * 0.35f);
-                poseStack.mulPose(Axis.XP.rotationDegrees(swingAngle(phase, windUp, strike)));
-                poseStack.translate(0f, HANDLE_TO_CENTER, 0f);
-                poseStack.mulPose(Axis.YP.rotationDegrees(90f)); // tool plane = swing plane, front prong toward the face
-                poseStack.mulPose(Axis.ZP.rotationDegrees(45f)); // item sprites are diagonal; stand the handle upright
-                poseStack.scale(TOOL_SCALE, TOOL_SCALE, TOOL_SCALE);
-                GhostItemDraw.draw(mc, ghost, session.ghostTool, fade * near, tint, shaderPack, ItemDisplayContext.NONE,
-                        poseStack, buffers, pos.hashCode());
-                poseStack.popPose();
+                drawGhost(mc, poseStack, cam, pos, session.face, frame, swingAngle(phase, session.shovel), drift, fade,
+                        ghost, session.ghostTool, tint, shaderPack, buffers);
             }
             GhostItemDraw.endBatch(buffers, ghost);
         }
+    }
+
+    /**
+     * Draws one ghost of {@code tool} in front of {@code face} of {@code pos}, swung to {@code angle} degrees.
+     * {@code drift} (0-1) moves it back out of the face as it dissolves after a break.
+     */
+    static void drawGhost(Minecraft mc, PoseStack poseStack, Vec3 cam, BlockPos pos, Direction face, Quaternionf frame,
+                          float angle, float drift, float visibility, GhostTextures.Ghost ghost, ItemStack tool, int tint,
+                          boolean shaderPack, MultiBufferSource.BufferSource buffers) {
+        Vec3 normal = Vec3.atLowerCornerOf(face.getNormal());
+        Vec3 faceCenter = Vec3.atCenterOf(pos).add(normal.scale(0.5));
+        float near = GhostItemDraw.nearFade(faceCenter.add(normal.scale(GRIP.z)).distanceTo(cam));
+
+        poseStack.pushPose();
+        poseStack.translate(faceCenter.x - cam.x, faceCenter.y - cam.y, faceCenter.z - cam.z);
+        poseStack.mulPose(frame);
+        poseStack.translate(GRIP.x, GRIP.y + drift * 0.25f, GRIP.z + drift * 0.35f);
+        poseStack.mulPose(Axis.XP.rotationDegrees(angle));
+        poseStack.translate(0f, HANDLE_TO_CENTER, 0f);
+        poseStack.mulPose(Axis.YP.rotationDegrees(90f)); // tool plane = swing plane, front prong toward the face
+        poseStack.mulPose(Axis.ZP.rotationDegrees(45f)); // item sprites are diagonal; stand the handle upright
+        poseStack.scale(TOOL_SCALE, TOOL_SCALE, TOOL_SCALE);
+        GhostItemDraw.draw(mc, ghost, tool, visibility * near, tint, shaderPack, ItemDisplayContext.NONE,
+                poseStack, buffers, pos.hashCode());
+        poseStack.popPose();
+    }
+
+    /** The raised (wound-up) angle a tool rests at between strikes. */
+    static float windUp(boolean shovel) {
+        return shovel ? SHOVEL_WIND_UP : PICK_WIND_UP;
     }
 
     private static float fade(SpectralSessions.Session session, float now) {
@@ -93,7 +107,9 @@ final class SpectralToolRenderer {
     }
 
     /** Lift slowly, strike fast, then rest on the block for a moment. */
-    private static float swingAngle(float phase, float windUp, float strike) {
+    static float swingAngle(float phase, boolean shovel) {
+        float windUp = windUp(shovel);
+        float strike = shovel ? SHOVEL_STRIKE : PICK_STRIKE;
         if (phase < 0.55f) {
             float t = phase / 0.55f;
             return Mth.lerp(1f - (1f - t) * (1f - t), strike, windUp);
@@ -112,12 +128,15 @@ final class SpectralToolRenderer {
     }
 
     /** Rotation taking face-frame axes into world axes. */
-    private static Quaternionf faceFrame(Direction face, Entity miner) {
+    static Quaternionf faceFrame(Direction face, Entity miner) {
+        return faceFrame(face, miner != null ? miner.getDirection() : Direction.NORTH);
+    }
+
+    /** Rotation taking face-frame axes into world axes; on floors and ceilings the swing runs along {@code look}. */
+    static Quaternionf faceFrame(Direction face, Direction look) {
         Vector3f z = face.step();
         Vector3f y;
         if (face.getAxis() == Direction.Axis.Y) {
-            // Floors and ceilings: swing along the miner's horizontal look direction.
-            Direction look = miner != null ? miner.getDirection() : Direction.NORTH;
             y = look.step();
         } else {
             y = new Vector3f(0f, 1f, 0f);

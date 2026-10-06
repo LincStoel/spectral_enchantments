@@ -22,6 +22,7 @@ public final class SpectralEnchantments {
 
     static {
         CONDITION_CODECS.register("enchantment_enabled", () -> EnchantmentEnabledCondition.CODEC);
+        CONDITION_CODECS.register("enchantment_treasure_only", () -> EnchantmentTreasureOnlyCondition.CODEC);
     }
 
     public SpectralEnchantments(IEventBus modBus, ModContainer container) {
@@ -31,6 +32,8 @@ public final class SpectralEnchantments {
         ModEntities.ENTITY_TYPES.register(modBus);
         modBus.addListener(ModNetwork::register);
         NeoForge.EVENT_BUS.register(CommonEvents.class);
+        NeoForge.EVENT_BUS.register(FarMiner.class);
+        NeoForge.EVENT_BUS.register(Gather.class);
         NeoForge.EVENT_BUS.register(SpectralWeaponManager.class);
     }
 

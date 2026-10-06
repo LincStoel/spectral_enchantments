@@ -45,6 +45,8 @@ public final class CommonEvents {
                 }
                 MiningState.setTarget(player, event.getPos(), event.getFace());
                 if (player instanceof ServerPlayer serverPlayer) {
+                    // Mining something within normal reach releases a Far Miner lock.
+                    FarMiner.cancel(serverPlayer);
                     startBroadcast(serverPlayer, event.getPos(), event.getFace());
                 }
             }

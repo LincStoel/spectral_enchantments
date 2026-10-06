@@ -38,7 +38,7 @@ final class AreaOutlineRenderer {
     }
 
     /** Same as the private LevelRenderer#renderShape, with vanilla's outline color (black, 40% alpha). */
-    private static void renderShape(PoseStack poseStack, VertexConsumer consumer, VoxelShape shape, double x, double y, double z) {
+    static void renderShape(PoseStack poseStack, VertexConsumer consumer, VoxelShape shape, double x, double y, double z) {
         PoseStack.Pose pose = poseStack.last();
         shape.forAllEdges((x1, y1, z1, x2, y2, z2) -> {
             float dx = (float) (x2 - x1);

@@ -3,6 +3,7 @@
     "translate": "enchantment.spectral_enchantments.broad_breaker"
   },
   "supported_items": "#spectral_enchantments:enchantable/area_mining",
+  "exclusive_set": "spectral_enchantments:far_miner",
   "weight": 2,
   "max_level": 3,
   "min_cost": {
