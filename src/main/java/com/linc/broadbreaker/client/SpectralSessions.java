@@ -123,7 +123,15 @@ public final class SpectralSessions {
         Session current = SESSIONS.get(player.getId());
         if (gameMode == null || !gameMode.isDestroying()) {
             if (current != null && current.active()) {
-                end(current, mc.level.getBlockState(current.origin).isAir());
+                boolean broken = mc.level.getBlockState(current.origin).isAir();
+                end(current, broken);
+                if (broken && gameMode != null && gameMode.destroyBlockPos.equals(current.origin)) {
+                    // Vanilla keeps the old target after a break, so if the spot refills (falling sand,
+                    // gravel) while attack is held it mines on without sending START, and the server
+                    // never learns which face is being mined. Forget the target so the next hold
+                    // starts properly. (-1, -1, -1) is vanilla's own "no target" value.
+                    gameMode.destroyBlockPos = new BlockPos(-1, -1, -1);
+                }
             }
             return;
         }

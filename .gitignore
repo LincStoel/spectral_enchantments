@@ -46,3 +46,9 @@ run/
 runs/
 run-data/
 .idea/workspace.xml
+
+### Compat harness ###
+run-compat/
+__pycache__/
+run-gametest/
+run-compat-session.out

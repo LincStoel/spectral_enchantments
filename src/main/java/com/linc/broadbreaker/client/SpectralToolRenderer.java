@@ -6,6 +6,7 @@ import com.mojang.math.Axis;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -36,6 +37,10 @@ final class SpectralToolRenderer {
     private static final float HANDLE_TO_CENTER = 0.5f;
     private static final float TOOL_SCALE = 0.9f;
     private static final float MAX_ALPHA = 0.75f;
+    // Ghosts right in front of the camera fade a little so they don't crowd the view (or bloom under shaders).
+    private static final float NEAR_FADE_START = 2.5f;
+    private static final float NEAR_FADE_END = 1.0f;
+    private static final float NEAR_FADE_MIN = 0.3f;
 
     private SpectralToolRenderer() {}
 
@@ -51,15 +56,15 @@ final class SpectralToolRenderer {
         Vec3 cam = event.getCamera().getPosition();
         float now = SpectralSessions.ticks + event.getPartialTick().getGameTimeDeltaPartialTick(false);
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
+        boolean shaderPack = IrisCompat.shaderPackInUse();
 
         for (SpectralSessions.Session session : SpectralSessions.all()) {
-            Quaternionf frame = faceFrame(session.face, mc.level.getEntity(session.entityId));
             float fade = fade(session, now);
-            if (fade <= 0f) {
+            GhostTextures.Ghost ghost = GhostTextures.get(session.ghostTool);
+            if (fade <= 0f || ghost == null) {
                 continue;
             }
-            int alpha = (int) (fade * MAX_ALPHA * 255f);
-            MultiBufferSource ghostBuffers = type -> new GhostVertexConsumer(buffers.getBuffer(SpectralRenderType.GHOST_TOOL), alpha);
+            Quaternionf frame = faceFrame(session.face, mc.level.getEntity(session.entityId));
             float elapsed = now - session.startTick;
             float drift = session.active() ? 0f : (now - session.endTick) / session.fadeTicks();
             float windUp = session.shovel ? SHOVEL_WIND_UP : PICK_WIND_UP;
@@ -67,7 +72,15 @@ final class SpectralToolRenderer {
 
             for (BlockPos pos : session.extras) {
                 float phase = Mth.frac((elapsed + phaseOffset(pos)) / SWING_PERIOD_TICKS);
-                Vec3 faceCenter = Vec3.atCenterOf(pos).add(Vec3.atLowerCornerOf(session.face.getNormal()).scale(0.5));
+                Vec3 normal = Vec3.atLowerCornerOf(session.face.getNormal());
+                Vec3 faceCenter = Vec3.atCenterOf(pos).add(normal.scale(0.5));
+                float near = nearFade(faceCenter.add(normal.scale(GRIP.z)).distanceTo(cam));
+                float visibility = fade * near;
+                int alpha = (int) (visibility * MAX_ALPHA * 255f);
+                // Shaderpacks draw the glowing type opaque, so a ghost that is fading uses the lit type,
+                // whose transparency they keep.
+                RenderType type = shaderPack && visibility < 0.999f ? ghost.litRenderType : ghost.renderType;
+                MultiBufferSource ghostBuffers = requested -> new GhostVertexConsumer(buffers.getBuffer(type), ghost, alpha);
 
                 poseStack.pushPose();
                 poseStack.translate(faceCenter.x - cam.x, faceCenter.y - cam.y, faceCenter.z - cam.z);
@@ -83,14 +96,21 @@ final class SpectralToolRenderer {
                         OverlayTexture.NO_OVERLAY, poseStack, ghostBuffers, mc.level, pos.hashCode());
                 poseStack.popPose();
             }
+            buffers.endBatch(ghost.renderType);
+            buffers.endBatch(ghost.litRenderType);
         }
-        buffers.endBatch(SpectralRenderType.GHOST_TOOL);
     }
 
     private static float fade(SpectralSessions.Session session, float now) {
         float in = Mth.clamp((now - session.startTick) / SpectralSessions.FADE_IN_TICKS, 0f, 1f);
         float out = session.active() ? 1f : 1f - Mth.clamp((now - session.endTick) / session.fadeTicks(), 0f, 1f);
         return in * out;
+    }
+
+    /** 1 at {@link #NEAR_FADE_START} blocks from the camera or more, easing down to {@link #NEAR_FADE_MIN} at {@link #NEAR_FADE_END}. */
+    private static float nearFade(double distance) {
+        float t = Mth.clamp((float) (distance - NEAR_FADE_END) / (NEAR_FADE_START - NEAR_FADE_END), 0f, 1f);
+        return Mth.lerp(t * t * (3f - 2f * t), NEAR_FADE_MIN, 1f);
     }
 
     /** Lift slowly, strike fast, then rest on the block for a moment. */
@@ -127,8 +147,8 @@ final class SpectralToolRenderer {
         return new Quaternionf().setFromNormalized(new Matrix3f(x, y, z));
     }
 
-    /** Forces every vertex of the item model to white with the ghost's alpha; the shader does the rest. */
-    private record GhostVertexConsumer(VertexConsumer delegate, int alpha) implements VertexConsumer {
+    /** Redirects the item model onto its ghost texture, white with the ghost's fade alpha. */
+    private record GhostVertexConsumer(VertexConsumer delegate, GhostTextures.Ghost ghost, int alpha) implements VertexConsumer {
         @Override
         public VertexConsumer addVertex(float x, float y, float z) {
             delegate.addVertex(x, y, z);
@@ -143,7 +163,8 @@ final class SpectralToolRenderer {
 
         @Override
         public VertexConsumer setUv(float u, float v) {
-            delegate.setUv(u, v);
+            float[] uv = ghost.remap(u, v);
+            delegate.setUv(uv[0], uv[1]);
             return this;
         }
 

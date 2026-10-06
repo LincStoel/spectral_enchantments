@@ -48,7 +48,19 @@ public final class CommonEvents {
                     startBroadcast(serverPlayer, event.getPos(), event.getFace());
                 }
             }
+            case STOP -> {
+                // The player finished mining this block. STOP carries the face too, so record it in case
+                // this mine never sent a START (vanilla skips it when re-mining a refilled position).
+                if (event.getFace() != null && MiningState.getFace(player, event.getPos()) == null) {
+                    MiningState.setTarget(player, event.getPos(), event.getFace());
+                }
+            }
             case ABORT -> {
+                // The player gave up; a later break of this block by something else (an Ars Nouveau
+                // spell cast by this player, say) must not be treated as them finishing the mine.
+                if (MiningState.getFace(player, event.getPos()) != null) {
+                    MiningState.clear(player);
+                }
                 if (player instanceof ServerPlayer serverPlayer) {
                     endBroadcast(serverPlayer, false);
                 }

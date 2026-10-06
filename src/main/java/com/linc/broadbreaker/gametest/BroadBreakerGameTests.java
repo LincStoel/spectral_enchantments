@@ -142,6 +142,34 @@ public final class BroadBreakerGameTests {
         expectDamage(helper, player, 1);
     }
 
+    @GameTest(template = "empty")
+    public static void breakAfterAbortIsNotAreaMined(GameTestHelper helper) {
+        // E.g. an Ars Nouveau spell, cast by the player, breaking the block they had started and given up on.
+        fillWall(helper, Blocks.STONE, 1);
+        FakePlayer player = player(helper, Items.DIAMOND_PICKAXE, 1);
+        BlockPos pos = helper.absolutePos(ORIGIN);
+        CommonHooks.onLeftClickBlock(player, pos, Direction.NORTH, ServerboundPlayerActionPacket.Action.START_DESTROY_BLOCK);
+        CommonHooks.onLeftClickBlock(player, pos, Direction.NORTH, ServerboundPlayerActionPacket.Action.ABORT_DESTROY_BLOCK);
+        helper.assertTrue(player.gameMode.destroyBlock(pos), "Origin block should break");
+        helper.assertBlockPresent(Blocks.STONE, ORIGIN.offset(1, 0, 0));
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void remineWithoutStartStillAreaMines(GameTestHelper helper) {
+        // Vanilla clients re-mining a refilled position send only STOP (no START); its face must still count.
+        fillWall(helper, Blocks.STONE, 1);
+        FakePlayer player = player(helper, Items.DIAMOND_PICKAXE, 1);
+        mine(helper, player, ORIGIN, Direction.NORTH);
+        fillWall(helper, Blocks.STONE, 1);
+        BlockPos pos = helper.absolutePos(ORIGIN);
+        CommonHooks.onLeftClickBlock(player, pos, Direction.NORTH, ServerboundPlayerActionPacket.Action.STOP_DESTROY_BLOCK);
+        helper.assertTrue(player.gameMode.destroyBlock(pos), "Origin block should break");
+        helper.assertBlockPresent(Blocks.AIR, ORIGIN.offset(1, 0, 0));
+        helper.assertBlockPresent(Blocks.AIR, ORIGIN.offset(-1, 1, 0));
+        helper.succeed();
+    }
+
     private static void fillWall(GameTestHelper helper, Block block, int level) {
         for (int dx = -level; dx <= level; dx++) {
             for (int dy = -1; dy <= 2 * level - 1; dy++) {

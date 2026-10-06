@@ -12,8 +12,17 @@ base {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
+// Dev-only compat harness (see tools/compat/README.md): a second mod loaded by the
+// compat runs alongside broad_breaker. It is never part of the jar.
+val harness: SourceSet = sourceSets.create("harness")
+
 neoForge {
-    version = property("neo_version") as String
+    enable {
+        version = property("neo_version") as String
+        // Run the original Minecraft classes instead of recompiled sources: recompiling renumbers
+        // lambdas, which breaks other mods' mixins (e.g. Accessories via The Aether) in dev runs.
+        isDisableRecompilation = true
+    }
 
     parchment {
         mappingsVersion = property("parchment_mappings_version") as String
@@ -22,19 +31,60 @@ neoForge {
 
     accessTransformers.from("src/main/resources/META-INF/accesstransformer.cfg")
 
+    mods {
+        register(property("mod_id") as String) {
+            sourceSet(sourceSets.main.get())
+        }
+        register("broad_breaker_harness") {
+            sourceSet(harness)
+        }
+    }
+
     runs {
         register("client") {
             client()
+            loadedMods = setOf(mods["broad_breaker"])
             systemProperty("neoforge.enabledGameTestNamespaces", property("mod_id") as String)
         }
         register("server") {
             server()
+            loadedMods = setOf(mods["broad_breaker"])
             programArgument("--nogui")
             systemProperty("neoforge.enabledGameTestNamespaces", property("mod_id") as String)
         }
         register("gameTestServer") {
             type = "gameTestServer"
+            // Own directory, so the tests never pick up whatever client mods sit in run/mods.
+            gameDirectory = layout.projectDirectory.dir("run-gametest")
+            loadedMods = setOf(mods["broad_breaker"])
             systemProperty("neoforge.enabledGameTestNamespaces", property("mod_id") as String)
+        }
+        // Compat runs: game directories under run-compat/, mods copied there by tools/compat/setup.py.
+        register("compatServer") {
+            server()
+            gameDirectory = layout.projectDirectory.dir("run-compat/server")
+            sourceSet = harness
+            loadedMods = setOf(mods["broad_breaker"], mods["broad_breaker_harness"])
+            programArgument("--nogui")
+            jvmArguments.addAll("-Xms2G", "-Xmx6G")
+        }
+        for ((name, bot) in listOf("compatClient" to "Bot1", "compatClient2" to "Bot2")) {
+            register(name) {
+                client()
+                gameDirectory = layout.projectDirectory.dir("run-compat/" + bot.lowercase())
+                sourceSet = harness
+                loadedMods = setOf(mods["broad_breaker"], mods["broad_breaker_harness"])
+                programArguments.addAll("--quickPlayMultiplayer", "127.0.0.1:25565", "--username", bot,
+                        "--width", "1280", "--height", "720")
+                jvmArguments.addAll("-Xms2G", "-Xmx6G")
+            }
+        }
+        register("compatGameTest") {
+            type = "gameTestServer"
+            gameDirectory = layout.projectDirectory.dir("run-compat/gametest")
+            loadedMods = setOf(mods["broad_breaker"])
+            systemProperty("neoforge.enabledGameTestNamespaces", property("mod_id") as String)
+            jvmArguments.addAll("-Xms2G", "-Xmx6G")
         }
         configureEach {
             systemProperty("forge.logging.markers", "REGISTRIES")
@@ -42,11 +92,11 @@ neoForge {
         }
     }
 
-    mods {
-        register(property("mod_id") as String) {
-            sourceSet(sourceSets.main.get())
-        }
-    }
+    addModdingDependenciesTo(harness)
+}
+
+dependencies {
+    "harnessImplementation"(sourceSets.main.get().output)
 }
 
 val modMetadataProperties = listOf(
