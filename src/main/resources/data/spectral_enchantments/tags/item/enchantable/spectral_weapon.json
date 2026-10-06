@@ -1,0 +1,14 @@
+{
+  "values": [
+    "#minecraft:swords",
+    "#minecraft:axes",
+    "#minecraft:enchantable/sword",
+    "#minecraft:enchantable/sharp_weapon",
+    "minecraft:mace",
+    "minecraft:trident",
+    { "id": "#c:swords", "required": false },
+    { "id": "#c:tools/melee_weapon", "required": false },
+    { "id": "#c:tools/spear", "required": false },
+    { "id": "#c:tools/mace", "required": false }
+  ]
+}
