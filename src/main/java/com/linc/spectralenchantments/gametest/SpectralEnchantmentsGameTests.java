@@ -4,21 +4,26 @@ import com.linc.spectralenchantments.AreaHelper;
 import com.linc.spectralenchantments.SpectralEnchantments;
 import com.linc.spectralenchantments.MiningState;
 import com.linc.spectralenchantments.ModEnchantments;
+import com.linc.spectralenchantments.SpectralConfig;
 import com.mojang.authlib.GameProfile;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.tags.EnchantmentTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.neoforged.neoforge.common.CommonHooks;
@@ -176,6 +181,22 @@ public final class SpectralEnchantmentsGameTests {
                 helper.setBlock(ORIGIN.offset(dx, dy, 0), block);
             }
         }
+    }
+
+    /** The config switches flow through to the data: a disabled enchantment fits nothing and is never offered. */
+    @GameTest(template = "empty")
+    public static void configSwitchesControlAvailability(GameTestHelper helper) {
+        checkAvailability(helper, ModEnchantments.BROAD_BREAKER, SpectralConfig.broadBreakerEnabled(), Items.DIAMOND_PICKAXE);
+        checkAvailability(helper, ModEnchantments.SPECTRAL_WEAPON, SpectralConfig.spectralWeaponEnabled(), Items.DIAMOND_SWORD);
+        helper.succeed();
+    }
+
+    private static void checkAvailability(GameTestHelper helper, ResourceKey<Enchantment> key, boolean enabled, Item tool) {
+        Holder<Enchantment> holder = helper.getLevel().registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(key);
+        helper.assertTrue(holder.is(EnchantmentTags.IN_ENCHANTING_TABLE) == enabled,
+                key.location() + " should " + (enabled ? "" : "not ") + "be in the enchanting table");
+        helper.assertTrue(new ItemStack(tool).supportsEnchantment(holder) == enabled,
+                key.location() + " should " + (enabled ? "" : "not ") + "apply to " + tool);
     }
 
     private static FakePlayer player(GameTestHelper helper, Item tool, int enchantLevel) {

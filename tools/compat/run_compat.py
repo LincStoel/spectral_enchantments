@@ -7,7 +7,7 @@ the scenarios, taking screenshots and probing client state. Results:
   run-compat/bot{1,2}/harness-*.txt   client events and probes
 
     python tools/compat/run_compat.py              # everything
-    python tools/compat/run_compat.py vanilla ars  # chosen scenarios (vanilla, iris, ars, sneak)
+    python tools/compat/run_compat.py vanilla ars  # chosen scenarios (vanilla, iris, ars, sneak, spectral)
 """
 import pathlib
 import re
@@ -282,7 +282,246 @@ def scenario_debug(s):
     s.c("bbh trace false", quiet=True)
 
 
-SCENARIOS = {"debug": scenario_debug, "vanilla": scenario_vanilla, "iris": scenario_iris, "ars": scenario_ars, "sneak": scenario_sneak}
+def give_spectral(s, bot, slot, item, level=3, rune=None):
+    """Puts a Spectral Weapon item in a slot (e.g. hotbar.0, weapon.offhand), optionally etched with a Quark rune."""
+    item_id = item if ":" in item else f"minecraft:{item}"
+    etched = f',quark:rune_color="{rune}"' if rune else ""
+    s.c(f'item replace entity {bot} {slot} with {item_id}'
+        f'[minecraft:enchantments={{levels:{{"spectral_enchantments:spectral_weapon":{level}}}}}{etched}]', quiet=True)
+
+
+def mob_health(s, tag):
+    out = s.c(f"data get entity @e[tag={tag},limit=1] Health", quiet=True)
+    m = re.search(r"([\d.]+)f", out)
+    return float(m.group(1)) if m else None
+
+
+def ghosts(probe_line):
+    """The spectralWeapons=[...] part of a probe line."""
+    m = re.search(r"spectralWeapons=\[(.*?)\]", probe_line)
+    return m.group(1) if m else ""
+
+
+def spectral_probe(s, label):
+    probe(s, label)
+    p1, p2 = last_probe("Bot1"), last_probe("Bot2")
+    log(f"  probe Bot1: {p1}\n  probe Bot2: {p2}")
+    return p1, p2
+
+
+def spectral_stage(s):
+    """Bot1 faces south (+z) in an open arena; Bot2 watches from behind its left shoulder, the target in view."""
+    s.c("fill -8 0 2 8 10 18 air", quiet=True)
+    s.c("kill @e[tag=sw_any]", quiet=True)
+    s.c("clear Bot1", quiet=True)
+    s.c("gamemode survival Bot1", quiet=True)
+    s.c("tp Bot1 0.5 0 7.5 0 0", quiet=True)
+    s.c("tp Bot2 6.0 0.5 5.0 60 12", quiet=True)
+    s.do("Bot1", "slot", "4")
+    time.sleep(2)
+
+
+def summon_target(s, mob, x, z, tag="sw_target"):
+    """A still mob (helmeted, so it won't burn) tagged for the scenario."""
+    s.c(f"summon minecraft:{mob} {x} 0 {z} {{NoAI:1b,PersistenceRequired:1b,Tags:[\"{tag}\",\"sw_any\"],"
+        f"ArmorItems:[{{}},{{}},{{}},{{id:\"minecraft:leather_helmet\",count:1}}]}}", quiet=True)
+
+
+def owner_hits(s, tag):
+    """Bot1 'hits' the tagged mob (a token player attack), which is what the spectral weapon locks on to."""
+    s.c(f"damage @e[tag={tag},limit=1] 0.01 minecraft:player_attack by Bot1", quiet=True)
+
+
+def watch_attack(s, prefix, item, mob="zombie", level=3, rune=None):
+    """Gives Bot1 `item` in hotbar slot 0, summons a still mob in range, has Bot1 hit it, screenshots the swings."""
+    spectral_stage(s)
+    give_spectral(s, "Bot1", "hotbar.0", item, level, rune)
+    time.sleep(2)
+    summon_target(s, mob, 0.5, 11.5)
+    time.sleep(0.5)
+    owner_hits(s, "sw_target")
+    before = mob_health(s, "sw_target")
+    styles = set()
+    s.healths = [before]
+    for i in range(6):
+        time.sleep(0.25)
+        shot(s, "Bot2", f"{prefix}-swing{i}")
+        s.do("Bot1", "probe", f"{prefix}-swing{i}")
+        time.sleep(0.3)
+        styles.update(re.findall(r"style=([A-Z_]+)", ghosts(last_probe("Bot1"))))
+        s.healths.append(mob_health(s, "sw_target"))
+    after = mob_health(s, "sw_target")
+    spectral_probe(s, f"{prefix}-attack")
+    log(f"  styles seen: {sorted(styles)}")
+    return before, after, styles
+
+
+def scenario_spectral(s):
+    """Spectral Weapon: rest pose, lock-on, attacks with each weapon style, sneak, off hand, anvil items, Quark runes."""
+    s.c("difficulty easy", quiet=True)  # peaceful deletes the target mobs on spawn
+    for bot in BOT_DIRS:
+        s.do(bot, "iris", "off")
+    time.sleep(5)
+
+    spectral_stage(s)
+    give_spectral(s, "Bot1", "hotbar.0", "diamond_sword")
+    time.sleep(2)
+    shot(s, "Bot2", "spectral-rest")
+    shot(s, "Bot1", "spectral-rest-firstperson")
+    p1, p2 = spectral_probe(s, "spectral-rest")
+    check("Bot1:minecraft:diamond_sword slot=0 left" in p1, "[spectral] Bot1 sees its own sword ghost resting on the left")
+    check("Bot1:minecraft:diamond_sword slot=0 left" in p2, "[spectral] Bot2 sees Bot1's sword ghost (remote)")
+    check("tint=FFFFFF" in ghosts(p1), "[spectral] an unetched weapon is spectral white")
+
+    # The hotbar icon of the manifested item gets a ghostly overlay (and in the inventory screen).
+    s.do("Bot1", "hud", "on")
+    time.sleep(0.5)
+    shot(s, "Bot1", "spectral-hotbar-overlay")
+    s.do("Bot1", "inventory", "open")
+    time.sleep(0.8)
+    shot(s, "Bot1", "spectral-inventory-overlay")
+    s.do("Bot1", "inventory", "close")
+    s.do("Bot1", "hud", "off")
+
+    # It doesn't attack on its own: a hostile mob in range is ignored until Bot1 hits it.
+    summon_target(s, "zombie", 0.5, 10.5)
+    time.sleep(3)
+    health = mob_health(s, "sw_target")
+    check(health is not None and health >= 20.0, f"[spectral] ignores a zombie Bot1 hasn't hit ({health})")
+    p1, _ = spectral_probe(s, "spectral-idle")
+    check("target=false" in ghosts(p1), "[spectral] no target before Bot1 hits anything")
+
+    # Locked on: hitting a second mob doesn't pull it away from the first.
+    summon_target(s, "spider", 3.5, 9.5, tag="sw_second")
+    time.sleep(0.5)
+    owner_hits(s, "sw_target")
+    time.sleep(0.2)
+    owner_hits(s, "sw_second")
+    second_before = mob_health(s, "sw_second")
+    time.sleep(0.8)
+    shot(s, "Bot2", "spectral-locked")
+    time.sleep(3)
+    first, second = mob_health(s, "sw_target"), mob_health(s, "sw_second")
+    check(first is None or first < 19.0, f"[spectral] the locked-on zombie is attacked ({first})")
+    check(second is not None and second_before is not None and abs(second - second_before) < 1e-3,
+          f"[spectral] the second mob Bot1 hit is left alone while locked on ({second_before} -> {second})")
+    # Sneaking clears the lock; afterwards it stays idle beside Bot1.
+    s.do("Bot1", "sneak", "on")
+    time.sleep(1.5)
+    s.do("Bot1", "sneak", "off")
+    time.sleep(1.5)
+    p1, _ = spectral_probe(s, "spectral-unlocked")
+    check("diamond_sword" in ghosts(p1) and "target=false" in ghosts(p1), "[spectral] sneaking clears the lock")
+    s.c("kill @e[tag=sw_any]", quiet=True)
+
+    # Held in the main hand: no ghost.
+    s.do("Bot1", "slot", "0")
+    time.sleep(1.5)
+    p1, _ = spectral_probe(s, "spectral-mainhand")
+    check("diamond_sword" not in ghosts(p1), "[spectral] no ghost while the sword is in the main hand")
+    s.do("Bot1", "slot", "4")
+    time.sleep(1.5)
+
+    # Leftmost wins; the off hand counts too, and rests on the left like the rest.
+    give_spectral(s, "Bot1", "hotbar.2", "iron_axe")
+    time.sleep(1.5)
+    p1, _ = spectral_probe(s, "spectral-two")
+    check("diamond_sword" in ghosts(p1) and "iron_axe" not in ghosts(p1), "[spectral] only the leftmost enchanted item manifests")
+    give_spectral(s, "Bot1", "weapon.offhand", "golden_sword")
+    time.sleep(2)
+    shot(s, "Bot2", "spectral-offhand")
+    p1, _ = spectral_probe(s, "spectral-offhand")
+    check("Bot1:minecraft:golden_sword slot=40 left" in p1, "[spectral] off-hand weapon manifests instead, on the left")
+    # ...but not while another weapon is in the main hand (no dual-wielding a duplicate).
+    s.c("item replace entity Bot1 hotbar.4 with minecraft:stone_sword", quiet=True)
+    time.sleep(2)
+    p1, _ = spectral_probe(s, "spectral-offhand-blocked")
+    check("golden_sword" not in ghosts(p1) and "diamond_sword" in ghosts(p1),
+          "[spectral] a weapon in the main hand keeps the off-hand one from manifesting")
+    s.c("item replace entity Bot1 hotbar.4 with minecraft:air", quiet=True)
+    time.sleep(1.5)
+
+    # Sneaking dismisses it.
+    s.do("Bot1", "sneak", "on")
+    time.sleep(2)
+    shot(s, "Bot2", "spectral-sneak")
+    p1, _ = spectral_probe(s, "spectral-sneak")
+    check("golden_sword" not in ghosts(p1), "[spectral] sneaking dismisses the ghost")
+    s.do("Bot1", "sneak", "off")
+    time.sleep(1)
+
+    # Walking and sprinting tilt the tip forward.
+    spectral_stage(s)
+    give_spectral(s, "Bot1", "hotbar.0", "diamond_sword")
+    time.sleep(1.5)
+    s.do("Bot1", "move", "walk")
+    time.sleep(1.2)
+    p1, _ = spectral_probe(s, "spectral-walk")
+    shot(s, "Bot2", "spectral-walk")
+    s.do("Bot1", "move", "sprint")
+    time.sleep(1.2)
+    p2, _ = spectral_probe(s, "spectral-sprint")
+    shot(s, "Bot2", "spectral-sprint")
+    s.do("Bot1", "move", "stop")
+    walk = re.search(r"tilt=([\d.]+)", p1)
+    sprint = re.search(r"tilt=([\d.]+)", p2)
+    check(walk is not None and 10 < float(walk.group(1)) < 30, f"[spectral] walking tilts ~20 deg ({walk and walk.group(1)})")
+    check(sprint is not None and float(sprint.group(1)) > 40, f"[spectral] sprinting tilts ~55 deg ({sprint and sprint.group(1)})")
+
+    # Expected swings follow Better Combat's combos (run/mods has it): sword slash/slash/stab, axe slashes,
+    # mace slash/slash/slam, trident and spear stab, Simply Swords' halberd slash/stab/stab/chop.
+    for prefix, item, style in (("sword", "diamond_sword", "STAB"), ("axe", "diamond_axe", "SLASH_H"),
+                                ("trident", "trident", "STAB"), ("mace", "mace", "SMASH"),
+                                ("halberd", "simplyswords:diamond_halberd", "STAB"),
+                                ("rapier", "simplyswords:diamond_rapier", None)):
+        before, after, styles = watch_attack(s, f"spectral-{prefix}", item)
+        # None afterwards: the zombie was killed.
+        check(before is not None and (after is None or after < before),
+              f"[spectral:{prefix}] the ghost hurt the zombie ({before} -> {'dead' if after is None else after})")
+        if style:
+            check(style in styles, f"[spectral:{prefix}] swings include {style} ({sorted(styles)})")
+
+    # Anvil-only items: weak bonks; a block shows as a ghostly block.
+    before, after, _ = watch_attack(s, "spectral-dirt", "dirt", mob="spider")
+    # One bonk every 4 s: between samples (~2 s apart) health drops by at most half a heart.
+    drops = [a - b for a, b in zip(s.healths, s.healths[1:]) if a is not None and b is not None and a - b > 1e-3]
+    check(bool(drops) and max(drops) <= 1.0001,
+          f"[spectral:dirt] a dirt block bonks for half a heart at a time (health {s.healths})")
+    shot(s, "Bot2", "spectral-dirt-rest")
+
+    # Quark's Color Runes: the ghost takes the colour of the etched glint.
+    for rune, tint in (("red", "DB3452"), ("cyan", "3FF3FF")):
+        spectral_stage(s)
+        give_spectral(s, "Bot1", "hotbar.0", "diamond_sword", rune=rune)
+        time.sleep(2)
+        shot(s, "Bot2", f"spectral-rune-{rune}")
+        p1, p2 = spectral_probe(s, f"spectral-rune-{rune}")
+        check(f"tint={tint}" in ghosts(p1) and f"tint={tint}" in ghosts(p2),
+              f"[spectral:quark] a {rune}-etched weapon's ghost is {rune} on both clients")
+    s.do("Bot1", "hud", "on")
+    time.sleep(0.5)
+    shot(s, "Bot1", "spectral-rune-hotbar-overlay")
+    s.do("Bot1", "hud", "off")
+    watch_attack(s, "spectral-rune-attack", "diamond_sword", rune="red")
+
+    # Under shaders, at night.
+    for bot in BOT_DIRS:
+        s.do(bot, "iris", "on")
+    time.sleep(25)
+    s.c("time set midnight", quiet=True)
+    watch_attack(s, "spectral-iris-night", "diamond_sword")
+    watch_attack(s, "spectral-iris-night-rune", "diamond_sword", rune="cyan")
+    s.c("time set noon", quiet=True)
+    for bot in BOT_DIRS:
+        s.do(bot, "iris", "off")
+    s.c("kill @e[tag=sw_any]", quiet=True)
+    s.c("clear Bot1", quiet=True)
+    s.c("difficulty peaceful", quiet=True)
+    time.sleep(5)
+
+
+SCENARIOS = {"debug": scenario_debug, "vanilla": scenario_vanilla, "iris": scenario_iris, "ars": scenario_ars,
+             "sneak": scenario_sneak, "spectral": scenario_spectral}
 
 
 def main():

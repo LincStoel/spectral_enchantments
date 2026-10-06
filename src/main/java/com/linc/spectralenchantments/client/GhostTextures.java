@@ -34,6 +34,8 @@ final class GhostTextures {
         final RenderType renderType;
         /** Non-emissive variant: lit by the world, but shaderpacks keep its transparency, so it can fade. */
         final RenderType litRenderType;
+        /** For icons in the GUI: the render type vanilla draws item icons with, so GUI lighting applies. */
+        final RenderType guiRenderType;
         private final ResourceLocation id;
         private final TextureAtlasSprite[] sprites;
         private final float[] slotU0;
@@ -44,6 +46,7 @@ final class GhostTextures {
             this.id = id;
             this.renderType = RenderType.entityTranslucentEmissive(id);
             this.litRenderType = RenderType.entityTranslucent(id);
+            this.guiRenderType = RenderType.itemEntityTranslucentCull(id);
             this.sprites = sprites;
             this.slotU0 = slotU0;
             this.slotU1 = slotU1;

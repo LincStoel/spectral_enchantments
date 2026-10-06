@@ -16,7 +16,7 @@ public final class AreaHelper {
     private AreaHelper() {}
 
     public static int getLevel(Player player, ItemStack stack) {
-        if (stack.isEmpty()) {
+        if (stack.isEmpty() || !SpectralConfig.broadBreakerEnabled()) {
             return 0;
         }
         return player.level().registryAccess().registry(Registries.ENCHANTMENT)
@@ -48,26 +48,32 @@ public final class AreaHelper {
             return List.of();
         }
 
+        int radius = radius(level);
         List<BlockPos> result = new ArrayList<>();
         if (face.getAxis() == Direction.Axis.Y) {
             // Mining a floor or ceiling: centered square.
-            for (int a = -level; a <= level; a++) {
-                for (int b = -level; b <= level; b++) {
+            for (int a = -radius; a <= radius; a++) {
+                for (int b = -radius; b <= radius; b++) {
                     addIfMineable(result, world, tool, origin, origin.offset(a, 0, b));
                 }
             }
         } else {
             // Mining a wall: the mined block is centered horizontally and second from the bottom.
             Direction.Axis across = face.getAxis() == Direction.Axis.X ? Direction.Axis.Z : Direction.Axis.X;
-            int top = 2 * level - 1;
+            int top = 2 * radius - 1;
             for (int dy = top; dy >= -1; dy--) {
-                for (int h = -level; h <= level; h++) {
+                for (int h = -radius; h <= radius; h++) {
                     BlockPos pos = across == Direction.Axis.X ? origin.offset(h, dy, 0) : origin.offset(0, dy, h);
                     addIfMineable(result, world, tool, origin, pos);
                 }
             }
         }
         return result;
+    }
+
+    /** Blocks either side of the mined one; the area is {@code 2 * radius + 1} blocks across (see {@link SpectralConfig}). */
+    public static int radius(int level) {
+        return SpectralConfig.broadBreakerArea(level) / 2;
     }
 
     private static void addIfMineable(List<BlockPos> out, Level world, ItemStack tool, BlockPos origin, BlockPos pos) {

@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
-    "spectral_enchantments:broad_breaker"
+    "#spectral_enchantments:non_treasure/broad_breaker",
+    "#spectral_enchantments:non_treasure/spectral_weapon"
   ]
 }

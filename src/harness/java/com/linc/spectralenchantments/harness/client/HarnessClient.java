@@ -12,9 +12,14 @@ import java.util.Map;
 import javax.annotation.Nullable;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
+import net.minecraft.client.gui.screens.inventory.InventoryScreen;
+import com.linc.spectralenchantments.client.GhostTint;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import com.linc.spectralenchantments.spectral.SpectralWeaponEntity;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -26,8 +31,10 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
  *   <li>{@code mine "x y z face"}: hold attack on that block until it breaks (or {@code stop})</li>
  *   <li>{@code stop}: release attack, aborting the current mining</li>
  *   <li>{@code sneak on|off}, {@code hud on|off}, {@code iris on|off}</li>
+ *   <li>{@code slot n}: select hotbar slot n</li>
+ *   <li>{@code move walk|sprint|stop}: hold forward (and sprint)</li>
  *   <li>{@code shot name}: screenshot to screenshots/name.png</li>
- *   <li>{@code probe label}: append Broad Breaker / Iris client state to harness-probe.txt</li>
+ *   <li>{@code probe label}: append Broad Breaker / Spectral Weapon / Iris client state to harness-probe.txt</li>
  * </ul>
  * Everything notable is appended to harness-events.txt in the game directory.
  */
@@ -62,6 +69,19 @@ public final class HarnessClient {
             case "trace" -> trace = arg.equals("on");
             case "sneak" -> mc.options.keyShift.setDown(arg.equals("on"));
             case "hud" -> mc.options.hideGui = arg.equals("off");
+            case "inventory" -> mc.setScreen(arg.equals("open") && mc.player != null ? new InventoryScreen(mc.player) : null);
+            case "slot" -> {
+                if (mc.player != null) {
+                    mc.player.getInventory().selected = Integer.parseInt(arg.trim());
+                }
+            }
+            case "move" -> {
+                mc.options.keyUp.setDown(!arg.equals("stop"));
+                mc.options.keySprint.setDown(arg.equals("sprint"));
+                if (mc.player != null) {
+                    mc.player.setSprinting(arg.equals("sprint"));
+                }
+            }
             case "iris" -> event("iris " + arg + " -> " + setIris(arg.equals("on")));
             case "shot" -> Screenshot.grab(mc.gameDirectory, arg + ".png", mc.getMainRenderTarget(),
                     message -> event("shot " + arg + ": " + message.getString()));
@@ -121,6 +141,7 @@ public final class HarnessClient {
         out.append(" | irisPackInUse=").append(irisCall("isShaderPackInUse"));
         out.append(" | spectralSessions=").append(sessionCount());
         out.append(" | spectralCracks=").append(spectralCrackCount(mc));
+        out.append(" | spectralWeapons=").append(spectralWeapons(mc));
         if (mc.gameMode != null) {
             out.append(" | destroying=").append(mc.gameMode.isDestroying());
         }
@@ -140,6 +161,40 @@ public final class HarnessClient {
         } catch (ReflectiveOperationException e) {
             return "n/a (" + e + ")";
         }
+    }
+
+    /** Spectral Weapon ghosts this client knows about: item, slot, side, target, fade, engage and swing state. */
+    private static String spectralWeapons(Minecraft mc) {
+        if (mc.level == null) {
+            return "[]";
+        }
+        StringBuilder out = new StringBuilder("[");
+        for (Entity entity : mc.level.entitiesForRendering()) {
+            if (entity instanceof SpectralWeaponEntity weapon) {
+                Player owner = weapon.getOwner();
+                out.append(owner != null ? owner.getName().getString() : "?").append(':').append(weapon.getItem().getItem())
+                        .append(" slot=").append(weapon.getSlot())
+                        .append(owner != null ? sideOf(owner, weapon) : " ?")
+                        .append(" target=").append(weapon.hasTarget())
+                        .append(" tint=").append(String.format("%06X", GhostTint.of(weapon.getItem(), 0f)))
+                        .append(" fade=").append(String.format("%.2f", weapon.fade))
+                        .append(" engage=").append(String.format("%.2f", weapon.engage))
+                        .append(" tilt=").append(String.format("%.1f", weapon.tilt))
+                        .append(" style=").append(weapon.attackStyle)
+                        .append(" dist=").append(owner != null ? String.format("%.2f", weapon.distanceTo(owner)) : "?")
+                        .append("; ");
+            }
+        }
+        return out.append(']').toString();
+    }
+
+    /** Which side of its owner (by body facing) the weapon floats on. */
+    private static String sideOf(Player owner, Entity weapon) {
+        double yaw = Math.toRadians(owner.yBodyRot);
+        double forwardX = -Math.sin(yaw);
+        double forwardZ = Math.cos(yaw);
+        double right = (weapon.getX() - owner.getX()) * -forwardZ + (weapon.getZ() - owner.getZ()) * forwardX;
+        return right > 0 ? " right" : " left";
     }
 
     /** Crack overlays registered under Broad Breaker's negative breaker ids. */

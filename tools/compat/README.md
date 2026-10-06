@@ -9,10 +9,10 @@ loaded only by the compat runs.
 
 | Where | What |
 |---|---|
-| `src/harness/` | `spectral_enchantments_harness` mod: `/bbh do <players> <action> [arg]` instructs bot clients (mine, stop, sneak, hud, iris on/off, shot, probe, trace); `/bbh arsbreak <player> <pos>` breaks a block the way an Ars Nouveau spell does (`BlockUtil.destroyBlockSafely` with the player as caster); `/bbh trace true\|false` logs every left-click and break event server-side as `[bbh-trace]` |
+| `src/harness/` | `spectral_enchantments_harness` mod: `/bbh do <players> <action> [arg]` instructs bot clients (mine, stop, sneak, slot, move walk/sprint/stop, hud, inventory open/close, iris on/off, shot, probe, trace); `/bbh arsbreak <player> <pos>` breaks a block the way an Ars Nouveau spell does (`BlockUtil.destroyBlockSafely` with the player as caster); `/bbh trace true\|false` logs every left-click and break event server-side as `[bbh-trace]` |
 | `tools/compat/setup.py` | Prepares `run-compat/`: copies `run/mods` (minus client-only Iris/Sodium for the servers), flat world, RCON on 127.0.0.1 with a random password, `eula=true`, BSL selected for Iris (off until toggled). Jars in `run-compat/overrides/bots/` replace the same mod in the bots |
 | `tools/compat/rcon.py` | Stdlib RCON client (`python tools/compat/rcon.py "<command>" ...`) |
-| `tools/compat/run_compat.py` | Launches the server and two bots (Bot1 mines, Bot2 watches) and runs the scenarios: `vanilla`, `iris`, `ars`, `sneak` (default), plus `debug` (two back-to-back mines with client and server tracing) |
+| `tools/compat/run_compat.py` | Launches the server and two bots (Bot1 mines, Bot2 watches) and runs the scenarios: `vanilla`, `iris`, `ars`, `sneak`, `spectral` (default), plus `debug` (two back-to-back mines with client and server tracing) |
 
 ## Workflow
 

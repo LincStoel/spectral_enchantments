@@ -1,4 +1,7 @@
 {
   "enchantment.spectral_enchantments.broad_breaker": "Broad Breaker",
-  "enchantment.spectral_enchantments.broad_breaker.desc": "Allows the tool to break blocks in a wider area. Sneak to break a single block."
+  "enchantment.spectral_enchantments.broad_breaker.desc": "Allows the tool to break blocks in a wider area. Sneak to break a single block.",
+  "enchantment.spectral_enchantments.spectral_weapon": "Spectral Weapon",
+  "enchantment.spectral_enchantments.spectral_weapon.desc": "Summons the enchanted weapon to fight by your side. Must be in your hotbar or offhand.",
+  "entity.spectral_enchantments.spectral_weapon": "Spectral Weapon"
 }

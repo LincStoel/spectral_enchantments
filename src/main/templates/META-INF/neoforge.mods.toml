@@ -25,3 +25,11 @@ type="required"
 versionRange="${minecraft_version_range}"
 ordering="NONE"
 side="BOTH"
+
+# Optional: Spectral Weapon reads Better Combat's attack combos (which also describe Simply Swords' weapons).
+[[dependencies."${mod_id}"]]
+modId="bettercombat"
+type="optional"
+versionRange="*"
+ordering="NONE"
+side="BOTH"
