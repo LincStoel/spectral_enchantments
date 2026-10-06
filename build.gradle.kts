@@ -13,7 +13,7 @@ base {
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
 // Dev-only compat harness (see tools/compat/README.md): a second mod loaded by the
-// compat runs alongside broad_breaker. It is never part of the jar.
+// compat runs alongside spectral_enchantments. It is never part of the jar.
 val harness: SourceSet = sourceSets.create("harness")
 
 neoForge {
@@ -35,7 +35,7 @@ neoForge {
         register(property("mod_id") as String) {
             sourceSet(sourceSets.main.get())
         }
-        register("broad_breaker_harness") {
+        register("spectral_enchantments_harness") {
             sourceSet(harness)
         }
     }
@@ -43,12 +43,12 @@ neoForge {
     runs {
         register("client") {
             client()
-            loadedMods = setOf(mods["broad_breaker"])
+            loadedMods = setOf(mods["spectral_enchantments"])
             systemProperty("neoforge.enabledGameTestNamespaces", property("mod_id") as String)
         }
         register("server") {
             server()
-            loadedMods = setOf(mods["broad_breaker"])
+            loadedMods = setOf(mods["spectral_enchantments"])
             programArgument("--nogui")
             systemProperty("neoforge.enabledGameTestNamespaces", property("mod_id") as String)
         }
@@ -56,7 +56,7 @@ neoForge {
             type = "gameTestServer"
             // Own directory, so the tests never pick up whatever client mods sit in run/mods.
             gameDirectory = layout.projectDirectory.dir("run-gametest")
-            loadedMods = setOf(mods["broad_breaker"])
+            loadedMods = setOf(mods["spectral_enchantments"])
             systemProperty("neoforge.enabledGameTestNamespaces", property("mod_id") as String)
         }
         // Compat runs: game directories under run-compat/, mods copied there by tools/compat/setup.py.
@@ -64,7 +64,7 @@ neoForge {
             server()
             gameDirectory = layout.projectDirectory.dir("run-compat/server")
             sourceSet = harness
-            loadedMods = setOf(mods["broad_breaker"], mods["broad_breaker_harness"])
+            loadedMods = setOf(mods["spectral_enchantments"], mods["spectral_enchantments_harness"])
             programArgument("--nogui")
             jvmArguments.addAll("-Xms2G", "-Xmx6G")
         }
@@ -73,7 +73,7 @@ neoForge {
                 client()
                 gameDirectory = layout.projectDirectory.dir("run-compat/" + bot.lowercase())
                 sourceSet = harness
-                loadedMods = setOf(mods["broad_breaker"], mods["broad_breaker_harness"])
+                loadedMods = setOf(mods["spectral_enchantments"], mods["spectral_enchantments_harness"])
                 programArguments.addAll("--quickPlayMultiplayer", "127.0.0.1:25565", "--username", bot,
                         "--width", "1280", "--height", "720")
                 jvmArguments.addAll("-Xms2G", "-Xmx6G")
@@ -82,7 +82,7 @@ neoForge {
         register("compatGameTest") {
             type = "gameTestServer"
             gameDirectory = layout.projectDirectory.dir("run-compat/gametest")
-            loadedMods = setOf(mods["broad_breaker"])
+            loadedMods = setOf(mods["spectral_enchantments"])
             systemProperty("neoforge.enabledGameTestNamespaces", property("mod_id") as String)
             jvmArguments.addAll("-Xms2G", "-Xmx6G")
         }

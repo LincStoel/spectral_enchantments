@@ -1,4 +1,4 @@
-"""Broad Breaker compatibility session. See README.md.
+"""Spectral Enchantments compatibility session. See README.md.
 
 Launches the compat server and two bot clients (Bot1 mines, Bot2 watches), then runs
 the scenarios, taking screenshots and probing client state. Results:
@@ -134,7 +134,7 @@ def build_wall(s, level, specials=()):
 
 def arm(s, bot, level, tool="diamond_pickaxe"):
     s.c(f'item replace entity {bot} weapon.mainhand with minecraft:{tool}'
-        f'[minecraft:enchantments={{levels:{{"broad_breaker:broad_breaker":{level}}}}}]', quiet=True)
+        f'[minecraft:enchantments={{levels:{{"spectral_enchantments:broad_breaker":{level}}}}}]', quiet=True)
 
 
 def stage(s):

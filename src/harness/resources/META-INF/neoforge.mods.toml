@@ -3,20 +3,20 @@ loaderVersion = "[4,)"
 license = "All Rights Reserved"
 
 [[mods]]
-modId = "broad_breaker_harness"
+modId = "spectral_enchantments_harness"
 version = "0.0.0"
-displayName = "Broad Breaker Compat Harness"
+displayName = "Spectral Enchantments Compat Harness"
 description = '''
-Dev-only harness for Broad Breaker compatibility testing: lets the server tell
+Dev-only harness for Spectral Enchantments compatibility testing: lets the server tell
 bot clients to mine, sneak, toggle Iris shaders, probe state and take screenshots.
 Loaded only by the compat runs; never shipped.
 '''
 
 [[mixins]]
-config = "broad_breaker_harness.mixins.json"
+config = "spectral_enchantments_harness.mixins.json"
 
-[[dependencies.broad_breaker_harness]]
-modId = "broad_breaker"
+[[dependencies.spectral_enchantments_harness]]
+modId = "spectral_enchantments"
 type = "required"
 versionRange = "[0,)"
 ordering = "AFTER"

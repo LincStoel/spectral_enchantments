@@ -83,7 +83,7 @@ def write_server():
         "spawn-animals=false",
         "spawn-npcs=false",
         "gamemode=creative",
-        "motd=broad_breaker compat",
+        "motd=spectral_enchantments compat",
         "",
     ]), encoding="utf-8")
 
