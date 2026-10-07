@@ -1,0 +1,7 @@
+{
+  "values": [
+    "minecraft:shield",
+    "minecraft:totem_of_undying",
+    { "id": "#c:tools/shield", "required": false }
+  ]
+}

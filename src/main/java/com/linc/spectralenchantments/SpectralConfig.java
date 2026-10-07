@@ -3,6 +3,7 @@ package com.linc.spectralenchantments;
 import java.util.List;
 import java.util.function.IntPredicate;
 import net.minecraft.util.Mth;
+import net.minecraft.world.item.Rarity;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 /**
@@ -13,7 +14,8 @@ import net.neoforged.neoforge.common.ModConfigSpec;
  *       data packs load, so a change takes effect after a restart (or {@code /reload}).</li>
  *   <li>Server ({@code serverconfig/spectral_enchantments-server.toml} in each world, synced to clients):
  *       the Spectral Weapon ranges, Broad Breaker areas, Far Miner reaches and speed, and Branch Finding's
- *       duration, search limit and cooldown, and Animated's radii, deployment time and recall distance.</li>
+ *       duration, search limit and cooldown, Animated's radii, deployment time and recall distance, Catapulting's
+ *       durability costs, item damage and block placing, and Explosive Bolts' fire spray and explosion.</li>
  * </ul>
  */
 public final class SpectralConfig {
@@ -28,6 +30,9 @@ public final class SpectralConfig {
     private static final int MAX_FAR_MINER_RANGE = 64;
     /** Keeps the outline packet well under the 1 MiB payload limit even for pathological leaf/log mixes. */
     private static final int MAX_BRANCH_FINDING_LEAVES = 16384;
+    /** Hearts a catapulted item deals for each rarity: common, uncommon, rare, epic. */
+    private static final List<Double> DEFAULT_CATAPULT_RARITY_HEARTS = List.of(1.0, 2.0, 3.0, 4.0);
+    private static final double MAX_CATAPULT_HEARTS = 100.0;
 
     public static final ModConfigSpec COMMON_SPEC;
     private static final ModConfigSpec.BooleanValue BROAD_BREAKER_ENABLED;
@@ -42,6 +47,10 @@ public final class SpectralConfig {
     private static final ModConfigSpec.BooleanValue BRANCH_FINDING_TREASURE_ONLY;
     private static final ModConfigSpec.BooleanValue ANIMATED_ENABLED;
     private static final ModConfigSpec.BooleanValue ANIMATED_TREASURE_ONLY;
+    private static final ModConfigSpec.BooleanValue CATAPULTING_ENABLED;
+    private static final ModConfigSpec.BooleanValue CATAPULTING_TREASURE_ONLY;
+    private static final ModConfigSpec.BooleanValue EXPLOSIVE_BOLTS_ENABLED;
+    private static final ModConfigSpec.BooleanValue EXPLOSIVE_BOLTS_TREASURE_ONLY;
 
     public static final ModConfigSpec SERVER_SPEC;
     private static final ModConfigSpec.ConfigValue<List<? extends Integer>> BREAKER_AREAS;
@@ -55,6 +64,13 @@ public final class SpectralConfig {
     private static final ModConfigSpec.IntValue ANIMATED_DEPLOY_RADIUS;
     private static final ModConfigSpec.IntValue ANIMATED_DEPLOY_SECONDS;
     private static final ModConfigSpec.IntValue ANIMATED_RECALL_DISTANCE;
+    private static final ModConfigSpec.IntValue CATAPULTING_BOW_COST;
+    private static final ModConfigSpec.IntValue CATAPULTING_WEAPON_COST;
+    private static final ModConfigSpec.ConfigValue<List<? extends Double>> CATAPULTING_RARITY_HEARTS;
+    private static final ModConfigSpec.BooleanValue CATAPULTING_PLACE_BLOCKS;
+    private static final ModConfigSpec.IntValue EXPLOSIVE_BOLTS_FIRE_RADIUS;
+    private static final ModConfigSpec.IntValue EXPLOSIVE_BOLTS_BURN_SECONDS;
+    private static final ModConfigSpec.IntValue EXPLOSIVE_BOLTS_GHAST_POWER;
 
     static {
         ModConfigSpec.Builder common = new ModConfigSpec.Builder();
@@ -112,6 +128,24 @@ public final class SpectralConfig {
                 .comment("If true, this enchantment is treasure-only: it can't be rolled at the enchanting table and is found",
                         "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
                 .define("animated.treasure_only", true);
+        CATAPULTING_ENABLED = common
+                .comment("Whether Catapulting can be obtained and works. When false it stays registered (so enchanted items",
+                        "keep it) but does nothing and no longer turns up in enchanting tables, loot, trades or recipes.",
+                        "Takes effect after a restart or /reload.")
+                .define("catapulting.enabled", true);
+        CATAPULTING_TREASURE_ONLY = common
+                .comment("If true, this enchantment is treasure-only: it can't be rolled at the enchanting table and is found",
+                        "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
+                .define("catapulting.treasure_only", false);
+        EXPLOSIVE_BOLTS_ENABLED = common
+                .comment("Whether Explosive Bolts can be obtained and works. When false it stays registered (so enchanted items",
+                        "keep it) but does nothing and no longer turns up in enchanting tables, loot, trades or recipes.",
+                        "Takes effect after a restart or /reload.")
+                .define("explosiveBolts.enabled", true);
+        EXPLOSIVE_BOLTS_TREASURE_ONLY = common
+                .comment("If true, this enchantment is treasure-only: it can't be rolled at the enchanting table and is found",
+                        "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
+                .define("explosiveBolts.treasure_only", false);
         COMMON_SPEC = common.build();
 
         ModConfigSpec.Builder server = new ModConfigSpec.Builder();
@@ -162,6 +196,31 @@ public final class SpectralConfig {
                 .comment("How far the owner can stray from a deployed Animated weapon before it flies back to them, in blocks.",
                         "Always at least one more than deployRadius.")
                 .defineInRange(List.of("animated", "recallDistance"), 16, 2, 128);
+        CATAPULTING_BOW_COST = server
+                .comment("Durability a Catapulting bow loses for each shot it fires from the off hand. Unbreaking still applies.")
+                .defineInRange(List.of("catapulting", "bowDurabilityCost"), 2, 0, 64);
+        CATAPULTING_WEAPON_COST = server
+                .comment("Durability a weapon or tool loses when a Catapulting bow fires it. Unbreaking still applies.",
+                        "A weapon this would break isn't fired.")
+                .defineInRange(List.of("catapulting", "weaponDurabilityCost"), 1, 0, 64);
+        CATAPULTING_RARITY_HEARTS = server
+                .comment("Hearts of damage dealt by a catapulted item that is neither a weapon nor normally thrown (blocks",
+                        "included), by rarity: common, uncommon, rare, epic. A full draw deals this much, a weaker one less.",
+                        "Four numbers from 0 to " + (int) MAX_CATAPULT_HEARTS + ". An invalid list is reset to the default.")
+                .define(List.of("catapulting", "rarityHearts"), () -> DEFAULT_CATAPULT_RARITY_HEARTS,
+                        SpectralConfig::isValidRarityHearts, List.class);
+        CATAPULTING_PLACE_BLOCKS = server
+                .comment("Whether catapulted blocks are placed where they land. When false they drop as items instead.")
+                .define(List.of("catapulting", "placeBlocks"), true);
+        EXPLOSIVE_BOLTS_FIRE_RADIUS = server
+                .comment("How far a blaze rod fired by Explosive Bolts sprays fire from where it lands, in blocks.")
+                .defineInRange(List.of("explosiveBolts", "blazeFireRadius"), 3, 1, 8);
+        EXPLOSIVE_BOLTS_BURN_SECONDS = server
+                .comment("How long creatures caught in a blaze rod's spray of fire burn, in seconds.")
+                .defineInRange(List.of("explosiveBolts", "blazeBurnSeconds"), 5, 1, 60);
+        EXPLOSIVE_BOLTS_GHAST_POWER = server
+                .comment("Explosion power of the fireball a ghast tear fires (a ghast's own is 1, a creeper's 3).")
+                .defineInRange(List.of("explosiveBolts", "ghastExplosionPower"), 1, 1, 5);
         SERVER_SPEC = server.build();
     }
 
@@ -182,6 +241,19 @@ public final class SpectralConfig {
                 return false;
             }
             previous = current;
+        }
+        return true;
+    }
+
+    /** One number per rarity, each from 0 to {@link #MAX_CATAPULT_HEARTS}. */
+    public static boolean isValidRarityHearts(Object value) {
+        if (!(value instanceof List<?> list) || list.size() != DEFAULT_CATAPULT_RARITY_HEARTS.size()) {
+            return false;
+        }
+        for (Object element : list) {
+            if (!(element instanceof Number number) || !(number.doubleValue() >= 0) || number.doubleValue() > MAX_CATAPULT_HEARTS) {
+                return false;
+            }
         }
         return true;
     }
@@ -232,6 +304,22 @@ public final class SpectralConfig {
 
     public static boolean animatedEnabled() {
         return COMMON_SPEC.isLoaded() ? ANIMATED_ENABLED.get() : ANIMATED_ENABLED.getDefault();
+    }
+
+    public static boolean catapultingTreasureOnly() {
+        return COMMON_SPEC.isLoaded() ? CATAPULTING_TREASURE_ONLY.get() : CATAPULTING_TREASURE_ONLY.getDefault();
+    }
+
+    public static boolean catapultingEnabled() {
+        return COMMON_SPEC.isLoaded() ? CATAPULTING_ENABLED.get() : CATAPULTING_ENABLED.getDefault();
+    }
+
+    public static boolean explosiveBoltsTreasureOnly() {
+        return COMMON_SPEC.isLoaded() ? EXPLOSIVE_BOLTS_TREASURE_ONLY.get() : EXPLOSIVE_BOLTS_TREASURE_ONLY.getDefault();
+    }
+
+    public static boolean explosiveBoltsEnabled() {
+        return COMMON_SPEC.isLoaded() ? EXPLOSIVE_BOLTS_ENABLED.get() : EXPLOSIVE_BOLTS_ENABLED.getDefault();
     }
 
     /** Broad Breaker's area width at {@code level} (levels above III use III's). */
@@ -288,6 +376,42 @@ public final class SpectralConfig {
     public static int animatedRecallDistance() {
         int distance = SERVER_SPEC.isLoaded() ? ANIMATED_RECALL_DISTANCE.get() : ANIMATED_RECALL_DISTANCE.getDefault();
         return Math.max(distance, animatedDeployRadius() + 1);
+    }
+
+    /** Durability a Catapulting bow loses per shot. */
+    public static int catapultingBowCost() {
+        return SERVER_SPEC.isLoaded() ? CATAPULTING_BOW_COST.get() : CATAPULTING_BOW_COST.getDefault();
+    }
+
+    /** Durability a catapulted weapon loses when fired. */
+    public static int catapultingWeaponCost() {
+        return SERVER_SPEC.isLoaded() ? CATAPULTING_WEAPON_COST.get() : CATAPULTING_WEAPON_COST.getDefault();
+    }
+
+    /** Damage (health points, not hearts) a catapulted item of this rarity deals at full draw. */
+    public static float catapultingRarityDamage(Rarity rarity) {
+        List<? extends Number> hearts = SERVER_SPEC.isLoaded() ? CATAPULTING_RARITY_HEARTS.get() : DEFAULT_CATAPULT_RARITY_HEARTS;
+        return 2f * hearts.get(Mth.clamp(rarity.ordinal(), 0, hearts.size() - 1)).floatValue();
+    }
+
+    /** Whether catapulted blocks are placed where they land. */
+    public static boolean catapultingPlacesBlocks() {
+        return SERVER_SPEC.isLoaded() ? CATAPULTING_PLACE_BLOCKS.get() : CATAPULTING_PLACE_BLOCKS.getDefault();
+    }
+
+    /** How far a blaze rod's spray of fire reaches, in blocks. */
+    public static int explosiveBoltsFireRadius() {
+        return SERVER_SPEC.isLoaded() ? EXPLOSIVE_BOLTS_FIRE_RADIUS.get() : EXPLOSIVE_BOLTS_FIRE_RADIUS.getDefault();
+    }
+
+    /** How long creatures caught in a blaze rod's spray burn, in seconds. */
+    public static int explosiveBoltsBurnSeconds() {
+        return SERVER_SPEC.isLoaded() ? EXPLOSIVE_BOLTS_BURN_SECONDS.get() : EXPLOSIVE_BOLTS_BURN_SECONDS.getDefault();
+    }
+
+    /** Explosion power of a ghast tear's fireball. */
+    public static int explosiveBoltsGhastPower() {
+        return SERVER_SPEC.isLoaded() ? EXPLOSIVE_BOLTS_GHAST_POWER.get() : EXPLOSIVE_BOLTS_GHAST_POWER.getDefault();
     }
 
     /** Defaults until the world's server config is loaded (or synced, on a client). */

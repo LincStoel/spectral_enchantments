@@ -1,0 +1,246 @@
+package com.linc.spectralenchantments.gametest;
+
+import com.linc.spectralenchantments.ModEnchantments;
+import com.linc.spectralenchantments.SpectralEnchantments;
+import com.linc.spectralenchantments.catapult.CatapultedItem;
+import com.linc.spectralenchantments.catapult.CatapultedWeapon;
+import com.linc.spectralenchantments.catapult.Catapulting;
+import com.mojang.authlib.GameProfile;
+import java.util.List;
+import java.util.UUID;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Holder;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.gametest.framework.GameTest;
+import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.tags.EnchantmentTags;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.animal.Pig;
+import net.minecraft.world.entity.projectile.Snowball;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.Rarity;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.AABB;
+import net.neoforged.fml.ModList;
+import net.neoforged.neoforge.common.util.FakePlayer;
+import net.neoforged.neoforge.common.util.FakePlayerFactory;
+import net.neoforged.neoforge.gametest.GameTestHolder;
+import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+
+/** Server-side checks for Catapulting. Run with {@code ./gradlew runGameTestServer}. */
+@GameTestHolder(SpectralEnchantments.MOD_ID)
+@PrefixGameTestTemplate(false)
+public final class CatapultingGameTests {
+    /** The shooter stands here looking straight down at a stone floor at y=1. */
+    private static final BlockPos SHOOTER = new BlockPos(4, 6, 4);
+    private static final BlockPos LANDING = new BlockPos(4, 2, 4);
+
+    private CatapultingGameTests() {}
+
+    @GameTest(template = "empty")
+    public static void sortsWhatTheOffHandHolds(GameTestHelper helper) {
+        FakePlayer player = shooter(helper, Items.STONE);
+        ItemStack bow = player.getMainHandItem();
+        helper.assertTrue(kind(player, Items.IRON_SWORD) == Catapulting.Kind.WEAPON, "Swords are weapons");
+        helper.assertTrue(kind(player, Items.DIAMOND_PICKAXE) == Catapulting.Kind.WEAPON, "Tools are weapons");
+        helper.assertTrue(kind(player, Items.TRIDENT) == Catapulting.Kind.WEAPON, "Tridents are weapons");
+        helper.assertTrue(kind(player, Items.SNOWBALL) == Catapulting.Kind.THROWABLE, "Snowballs are thrown");
+        helper.assertTrue(kind(player, Items.ENDER_PEARL) == Catapulting.Kind.THROWABLE, "Ender pearls are thrown");
+        helper.assertTrue(kind(player, Items.DIRT) == Catapulting.Kind.BLOCK, "Dirt is a block");
+        helper.assertTrue(kind(player, Items.DIAMOND) == Catapulting.Kind.ITEM, "Diamonds are just items");
+        helper.assertTrue(kind(player, Items.ARROW) == null, "Arrows are shot as arrows");
+        helper.assertTrue(kind(player, Items.SHIELD) == null, "Shields stay in the off hand");
+        helper.assertTrue(kind(player, Items.TOTEM_OF_UNDYING) == null, "Totems stay in the off hand");
+
+        player.setItemInHand(InteractionHand.MAIN_HAND, new ItemStack(Items.BOW));
+        player.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.IRON_SWORD));
+        helper.assertTrue(Catapulting.kindFor(player, player.getMainHandItem()) == null, "A plain bow fires nothing from the off hand");
+        player.setItemInHand(InteractionHand.MAIN_HAND, bow);
+        player.setItemInHand(InteractionHand.OFF_HAND, ItemStack.EMPTY);
+        helper.assertTrue(Catapulting.kindFor(player, bow) == null, "An empty off hand leaves the bow as it was");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void offHandItemIsOfferedAsAmmo(GameTestHelper helper) {
+        FakePlayer player = shooter(helper, Items.IRON_SWORD);
+        helper.assertTrue(player.getProjectile(player.getMainHandItem()) == player.getOffhandItem(),
+                "The bow should draw with the off-hand weapon and no arrows");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void weaponAboutToBreakIsNotFired(GameTestHelper helper) {
+        ItemStack sword = new ItemStack(Items.IRON_SWORD);
+        sword.setDamageValue(sword.getMaxDamage() - 1);
+        FakePlayer player = shooter(helper, sword);
+        helper.assertTrue(Catapulting.kindFor(player, player.getMainHandItem()) == null, "Firing would break the sword");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void weaponSticksWhereItLands(GameTestHelper helper) {
+        floor(helper);
+        FakePlayer player = shooter(helper, Items.IRON_SWORD);
+        ItemStack bow = player.getMainHandItem();
+        helper.assertTrue(Catapulting.fire(player, bow, 1f), "The sword should be fired");
+        helper.assertTrue(player.getOffhandItem().isEmpty(), "The sword leaves the off hand");
+        helper.assertTrue(bow.getDamageValue() == 2, "The bow loses 2 durability, not " + bow.getDamageValue());
+
+        helper.succeedWhen(() -> {
+            List<CatapultedWeapon> weapons = helper.getLevel().getEntitiesOfClass(CatapultedWeapon.class, area(helper));
+            helper.assertTrue(weapons.size() == 1, "Expected one fired weapon, found " + weapons.size());
+            CatapultedWeapon weapon = weapons.getFirst();
+            helper.assertTrue(weapon.isStuck(), "The sword should stick in the ground");
+            helper.assertFalse(weapon.isReturning(), "A plain sword stays where it lands");
+            helper.assertTrue(weapon.getPickupItemStackOrigin().is(Items.IRON_SWORD), "It can be picked up as the sword");
+            helper.assertTrue(weapon.getPickupItemStackOrigin().getDamageValue() == 1, "The sword loses 1 durability");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void animatedWeaponFliesBackAfterImpact(GameTestHelper helper) {
+        floor(helper);
+        ItemStack sword = new ItemStack(Items.IRON_SWORD);
+        sword.enchant(holder(helper, ModEnchantments.ANIMATED), 1);
+        FakePlayer player = shooter(helper, sword);
+        Catapulting.fire(player, player.getMainHandItem(), 1f);
+        helper.succeedWhen(() -> helper.assertTrue(helper.getLevel().getEntitiesOfClass(CatapultedWeapon.class, area(helper))
+                .stream().anyMatch(CatapultedWeapon::isReturning), "The Animated sword should head home"));
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void loyalWeaponComesBack(GameTestHelper helper) {
+        floor(helper);
+        ItemStack sword = new ItemStack(Items.IRON_SWORD);
+        sword.enchant(holder(helper, Enchantments.LOYALTY), 3);
+        FakePlayer player = shooter(helper, sword);
+        Catapulting.fire(player, player.getMainHandItem(), 1f);
+        helper.succeedWhen(() -> helper.assertTrue(helper.getLevel().getEntitiesOfClass(CatapultedWeapon.class, area(helper))
+                .stream().anyMatch(CatapultedWeapon::isReturning), "The Loyalty sword should head home"));
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void blockIsPlacedWhereItLands(GameTestHelper helper) {
+        floor(helper);
+        FakePlayer player = shooter(helper, new ItemStack(Items.OAK_PLANKS, 2));
+        helper.assertTrue(Catapulting.fire(player, player.getMainHandItem(), 1f), "The planks should be fired");
+        helper.assertTrue(player.getOffhandItem().getCount() == 1, "One plank is fired at a time");
+        helper.succeedWhen(() -> {
+            helper.assertBlockPresent(Blocks.OAK_PLANKS, LANDING);
+            helper.assertTrue(helper.getLevel().getEntitiesOfClass(CatapultedItem.class, area(helper)).isEmpty(), "The projectile is gone");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void blockShattersOnAMob(GameTestHelper helper) {
+        floor(helper);
+        Pig pig = helper.spawnWithNoFreeWill(EntityType.PIG, LANDING); // unarmored, unlike husks
+        FakePlayer player = shooter(helper, Items.OAK_PLANKS);
+        Catapulting.fire(player, player.getMainHandItem(), 1f);
+        helper.runAfterDelay(20, () -> {
+            float expected = 2f; // a common item: one heart
+            helper.assertTrue(pig.getHealth() <= pig.getMaxHealth() - expected + 0.01f,
+                    "The pig should take one heart, health is " + pig.getHealth());
+            helper.assertBlockNotPresent(Blocks.OAK_PLANKS, LANDING.above());
+            helper.assertBlockNotPresent(Blocks.OAK_PLANKS, LANDING);
+            helper.assertTrue(helper.getLevel().getEntitiesOfClass(ItemEntity.class, area(helper)).isEmpty(), "The block is destroyed, not dropped");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void itemsDealDamageByRarity(GameTestHelper helper) {
+        floor(helper);
+        Pig pig = helper.spawnWithNoFreeWill(EntityType.PIG, LANDING); // unarmored, unlike husks
+        ItemStack uncommon = new ItemStack(Items.DIAMOND);
+        uncommon.set(DataComponents.RARITY, Rarity.UNCOMMON); // two hearts
+        FakePlayer player = shooter(helper, uncommon);
+        Catapulting.fire(player, player.getMainHandItem(), 1f);
+        helper.runAfterDelay(20, () -> {
+            helper.assertTrue(pig.getHealth() <= pig.getMaxHealth() - 4f + 0.01f,
+                    "The pig should take two hearts, health is " + pig.getHealth());
+            helper.assertTrue(helper.getLevel().getEntitiesOfClass(ItemEntity.class, area(helper)).stream()
+                    .anyMatch(item -> item.getItem().is(Items.DIAMOND)), "The item drops where it hit");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty")
+    public static void throwablesAreThrownAtBowSpeed(GameTestHelper helper) {
+        FakePlayer player = shooter(helper, new ItemStack(Items.SNOWBALL, 4));
+        ItemStack bow = player.getMainHandItem();
+        helper.assertTrue(Catapulting.fire(player, bow, 1f), "The snowball should be thrown");
+        helper.assertTrue(player.getOffhandItem().getCount() == 3, "Throwing uses up a snowball");
+        List<Snowball> snowballs = helper.getLevel().getEntitiesOfClass(Snowball.class, area(helper).inflate(4));
+        helper.assertTrue(snowballs.size() == 1, "Expected one snowball, found " + snowballs.size());
+        helper.assertTrue(snowballs.getFirst().getDeltaMovement().length() > 2.5, "The snowball flies at bow speed");
+        helper.assertTrue(bow.getDamageValue() == 2, "The bow loses 2 durability");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void notTreasureByDefault(GameTestHelper helper) {
+        Holder<Enchantment> catapulting = holder(helper, ModEnchantments.CATAPULTING);
+        helper.assertTrue(catapulting.is(EnchantmentTags.NON_TREASURE), "Catapulting rolls at the enchanting table");
+        helper.assertFalse(catapulting.is(EnchantmentTags.TREASURE), "Catapulting isn't treasure by default");
+        helper.assertTrue(catapulting.value().isSupportedItem(new ItemStack(Items.BOW)), "Catapulting goes on bows");
+        helper.assertFalse(catapulting.value().isSupportedItem(new ItemStack(Items.CROSSBOW)), "Catapulting doesn't go on crossbows");
+        helper.succeed();
+    }
+
+    /** Compat run only: the Ars Nouveau enchanting apparatus recipe loads. */
+    @GameTest(template = "empty")
+    public static void catapultingArsNouveauRecipeLoads(GameTestHelper helper) {
+        if (ModList.get().isLoaded("ars_nouveau")) {
+            helper.assertTrue(helper.getLevel().getRecipeManager().byKey(SpectralEnchantments.id("ars_nouveau/catapulting_1")).isPresent(),
+                    "Missing Ars Nouveau recipe catapulting_1");
+        }
+        helper.succeed();
+    }
+
+    private static Catapulting.Kind kind(FakePlayer player, Item item) {
+        player.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(item));
+        return Catapulting.kindFor(player, player.getMainHandItem());
+    }
+
+    private static void floor(GameTestHelper helper) {
+        for (int x = 0; x < 9; x++) {
+            for (int z = 0; z < 9; z++) {
+                helper.setBlock(new BlockPos(x, 1, z), Blocks.STONE);
+            }
+        }
+    }
+
+    private static AABB area(GameTestHelper helper) {
+        return new AABB(helper.absolutePos(BlockPos.ZERO)).expandTowards(9, 12, 9);
+    }
+
+    private static FakePlayer shooter(GameTestHelper helper, Item offhand) {
+        return shooter(helper, new ItemStack(offhand));
+    }
+
+    /** A survival player above the floor, looking straight down, a Catapulting bow in hand and {@code offhand}. */
+    private static FakePlayer shooter(GameTestHelper helper, ItemStack offhand) {
+        FakePlayer player = FakePlayerFactory.get(helper.getLevel(), new GameProfile(UUID.randomUUID(), "catapult_test"));
+        BlockPos pos = helper.absolutePos(SHOOTER);
+        player.moveTo(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, 0f, 90f);
+        ItemStack bow = new ItemStack(Items.BOW);
+        bow.enchant(holder(helper, ModEnchantments.CATAPULTING), 1);
+        player.setItemInHand(InteractionHand.MAIN_HAND, bow);
+        player.setItemInHand(InteractionHand.OFF_HAND, offhand);
+        return player;
+    }
+
+    private static Holder<Enchantment> holder(GameTestHelper helper, ResourceKey<Enchantment> key) {
+        return helper.getLevel().registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(key);
+    }
+}

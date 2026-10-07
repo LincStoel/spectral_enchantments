@@ -1,0 +1,9 @@
+{
+  "values": [
+    "#spectral_enchantments:enchantable/spectral_weapon",
+    "#minecraft:pickaxes",
+    "#minecraft:shovels",
+    "#minecraft:hoes",
+    { "id": "#c:tools/mining_tool", "required": false }
+  ]
+}

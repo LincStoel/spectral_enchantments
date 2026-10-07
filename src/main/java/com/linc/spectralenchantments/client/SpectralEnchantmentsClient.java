@@ -25,6 +25,9 @@ public final class SpectralEnchantmentsClient {
         modBus.addListener((EntityRenderersEvent.RegisterRenderers event) -> {
             event.registerEntityRenderer(ModEntities.SPECTRAL_WEAPON.get(), NoopRenderer::new);
             event.registerEntityRenderer(ModEntities.ANIMATED_WEAPON.get(), AnimatedWeaponRenderer::new);
+            event.registerEntityRenderer(ModEntities.CATAPULTED_WEAPON.get(), ItemArrowRenderer::new);
+            event.registerEntityRenderer(ModEntities.CATAPULTED_ITEM.get(), TumblingItemRenderer::new);
+            event.registerEntityRenderer(ModEntities.BLAZE_BOLT.get(), ItemArrowRenderer::new);
         });
         modBus.addListener(SpectralSlotOverlay::register);
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> {

@@ -1,6 +1,8 @@
 package com.linc.spectralenchantments;
 
 import com.linc.spectralenchantments.animated.AnimatedManager;
+import com.linc.spectralenchantments.catapult.Catapulting;
+import com.linc.spectralenchantments.explosive.ExplosiveBolts;
 import com.linc.spectralenchantments.network.ModNetwork;
 import com.linc.spectralenchantments.spectral.SpectralWeaponManager;
 import com.linc.spectralenchantments.spectral.WeaponStrike;
@@ -40,6 +42,8 @@ public final class SpectralEnchantments {
         NeoForge.EVENT_BUS.register(SpectralWeaponManager.class);
         NeoForge.EVENT_BUS.register(WeaponStrike.class);
         NeoForge.EVENT_BUS.register(AnimatedManager.class);
+        NeoForge.EVENT_BUS.register(Catapulting.class);
+        NeoForge.EVENT_BUS.register(ExplosiveBolts.class);
     }
 
     public static ResourceLocation id(String path) {

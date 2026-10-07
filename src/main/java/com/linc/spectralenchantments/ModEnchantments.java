@@ -18,6 +18,10 @@ public final class ModEnchantments {
             ResourceKey.create(Registries.ENCHANTMENT, SpectralEnchantments.id("branch_finding"));
     public static final ResourceKey<Enchantment> ANIMATED =
             ResourceKey.create(Registries.ENCHANTMENT, SpectralEnchantments.id("animated"));
+    public static final ResourceKey<Enchantment> CATAPULTING =
+            ResourceKey.create(Registries.ENCHANTMENT, SpectralEnchantments.id("catapulting"));
+    public static final ResourceKey<Enchantment> EXPLOSIVE_BOLTS =
+            ResourceKey.create(Registries.ENCHANTMENT, SpectralEnchantments.id("explosive_bolts"));
 
     private ModEnchantments() {}
 }

@@ -178,6 +178,64 @@
             "enchantment": "animated"
           }
         ]
+      },
+      {
+        "formats": {
+          "min_inclusive": 0,
+          "max_inclusive": 2147483647
+        },
+        "directory": "overlay_disable_catapulting",
+        "neoforge:conditions": [
+          {
+            "type": "neoforge:not",
+            "value": {
+              "type": "spectral_enchantments:enchantment_enabled",
+              "enchantment": "catapulting"
+            }
+          }
+        ]
+      },
+      {
+        "formats": {
+          "min_inclusive": 0,
+          "max_inclusive": 2147483647
+        },
+        "directory": "overlay_treasure_catapulting",
+        "neoforge:conditions": [
+          {
+            "type": "spectral_enchantments:enchantment_treasure_only",
+            "enchantment": "catapulting"
+          }
+        ]
+      },
+      {
+        "formats": {
+          "min_inclusive": 0,
+          "max_inclusive": 2147483647
+        },
+        "directory": "overlay_disable_explosive_bolts",
+        "neoforge:conditions": [
+          {
+            "type": "neoforge:not",
+            "value": {
+              "type": "spectral_enchantments:enchantment_enabled",
+              "enchantment": "explosive_bolts"
+            }
+          }
+        ]
+      },
+      {
+        "formats": {
+          "min_inclusive": 0,
+          "max_inclusive": 2147483647
+        },
+        "directory": "overlay_treasure_explosive_bolts",
+        "neoforge:conditions": [
+          {
+            "type": "spectral_enchantments:enchantment_treasure_only",
+            "enchantment": "explosive_bolts"
+          }
+        ]
       }
     ]
   }

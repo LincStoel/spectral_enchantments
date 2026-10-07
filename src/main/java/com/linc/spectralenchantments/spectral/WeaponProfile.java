@@ -54,6 +54,11 @@ public record WeaponProfile(boolean full, float baseDamage, int intervalTicks, L
         return new WeaponProfile(true, damage, interval, combat != null ? combat : fallbackSteps(stack));
     }
 
+    /** The attack damage of a player holding only this item in the main hand. */
+    public static float attackDamage(ItemStack stack) {
+        return (float) mainHandValue(stack, Attributes.ATTACK_DAMAGE, BASE_ATTACK_DAMAGE);
+    }
+
     public AttackStep step(int comboIndex) {
         return steps.get(Math.floorMod(comboIndex, steps.size()));
     }

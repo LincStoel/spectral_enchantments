@@ -22,7 +22,9 @@ public record EnchantmentEnabledCondition(Which enchantment) implements IConditi
         FAR_MINER("far_miner"),
         GATHER("gather"),
         BRANCH_FINDING("branch_finding"),
-        ANIMATED("animated");
+        ANIMATED("animated"),
+        CATAPULTING("catapulting"),
+        EXPLOSIVE_BOLTS("explosive_bolts");
 
         static final Codec<Which> CODEC = StringRepresentable.fromEnum(Which::values);
 
@@ -47,6 +49,8 @@ public record EnchantmentEnabledCondition(Which enchantment) implements IConditi
             case GATHER -> SpectralConfig.gatherEnabled();
             case BRANCH_FINDING -> SpectralConfig.branchFindingEnabled();
             case ANIMATED -> SpectralConfig.animatedEnabled();
+            case CATAPULTING -> SpectralConfig.catapultingEnabled();
+            case EXPLOSIVE_BOLTS -> SpectralConfig.explosiveBoltsEnabled();
         };
     }
 
