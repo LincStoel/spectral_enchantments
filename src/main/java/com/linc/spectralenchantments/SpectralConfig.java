@@ -12,7 +12,8 @@ import net.neoforged.neoforge.common.ModConfigSpec;
  *   <li>Common ({@code config/spectral_enchantments-common.toml}): switching each enchantment off. Read when
  *       data packs load, so a change takes effect after a restart (or {@code /reload}).</li>
  *   <li>Server ({@code serverconfig/spectral_enchantments-server.toml} in each world, synced to clients):
- *       the Spectral Weapon ranges, Broad Breaker areas, and Far Miner reaches and speed.</li>
+ *       the Spectral Weapon ranges, Broad Breaker areas, Far Miner reaches and speed, and Branch Finding's
+ *       duration, search limit and cooldown.</li>
  * </ul>
  */
 public final class SpectralConfig {
@@ -25,6 +26,8 @@ public final class SpectralConfig {
     private static final int MAX_WEAPON_RANGE = 64;
     private static final int MAX_BREAKER_AREA = 33;
     private static final int MAX_FAR_MINER_RANGE = 64;
+    /** Keeps the outline packet well under the 1 MiB payload limit even for pathological leaf/log mixes. */
+    private static final int MAX_BRANCH_FINDING_LEAVES = 16384;
 
     public static final ModConfigSpec COMMON_SPEC;
     private static final ModConfigSpec.BooleanValue BROAD_BREAKER_ENABLED;
@@ -35,12 +38,17 @@ public final class SpectralConfig {
     private static final ModConfigSpec.BooleanValue FAR_MINER_TREASURE_ONLY;
     private static final ModConfigSpec.BooleanValue GATHER_ENABLED;
     private static final ModConfigSpec.BooleanValue GATHER_TREASURE_ONLY;
+    private static final ModConfigSpec.BooleanValue BRANCH_FINDING_ENABLED;
+    private static final ModConfigSpec.BooleanValue BRANCH_FINDING_TREASURE_ONLY;
 
     public static final ModConfigSpec SERVER_SPEC;
     private static final ModConfigSpec.ConfigValue<List<? extends Integer>> BREAKER_AREAS;
     private static final ModConfigSpec.ConfigValue<List<? extends Integer>> WEAPON_RANGES;
     private static final ModConfigSpec.ConfigValue<List<? extends Integer>> FAR_MINER_RANGES;
     private static final ModConfigSpec.DoubleValue FAR_MINER_SPEED;
+    private static final ModConfigSpec.IntValue BRANCH_FINDING_DURATION;
+    private static final ModConfigSpec.IntValue BRANCH_FINDING_MAX_LEAVES;
+    private static final ModConfigSpec.IntValue BRANCH_FINDING_COOLDOWN;
 
     static {
         ModConfigSpec.Builder common = new ModConfigSpec.Builder();
@@ -80,6 +88,15 @@ public final class SpectralConfig {
                 .comment("If true, this enchantment is treasure-only: it can't be rolled at the enchanting table and is found",
                         "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
                 .define("gather.treasure_only", false);
+        BRANCH_FINDING_ENABLED = common
+                .comment("Whether Branch Finding can be obtained and works. When false it stays registered (so enchanted items",
+                        "keep it) but does nothing and no longer turns up in enchanting tables, loot, trades or recipes.",
+                        "Takes effect after a restart or /reload.")
+                .define("branchFinding.enabled", true);
+        BRANCH_FINDING_TREASURE_ONLY = common
+                .comment("If true, this enchantment is treasure-only: it can't be rolled at the enchanting table and is found",
+                        "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
+                .define("branchFinding.treasure_only", false);
         COMMON_SPEC = common.build();
 
         ModConfigSpec.Builder server = new ModConfigSpec.Builder();
@@ -106,6 +123,17 @@ public final class SpectralConfig {
                         "Replaces vanilla's underwater and airborne penalties rather than adding to them (Mining Fatigue still applies).",
                         "Normal mining is unaffected.")
                 .defineInRange(List.of("farMiner", "speedMultiplier"), 0.2, 0.01, 1.0);
+        BRANCH_FINDING_DURATION = server
+                .comment("How long Branch Finding's outlines last, in seconds. They fade steadily from the moment they appear.")
+                .defineInRange(List.of("branchFinding", "durationSeconds"), 16, 1, 300);
+        BRANCH_FINDING_MAX_LEAVES = server
+                .comment("The most leaf blocks one use of Branch Finding searches, nearest first. Logs touching leaves past",
+                        "this limit aren't outlined. Bounds the work done for huge or merged canopies.")
+                .defineInRange(List.of("branchFinding", "maxLeaves"), 4096, 16, MAX_BRANCH_FINDING_LEAVES);
+        BRANCH_FINDING_COOLDOWN = server
+                .comment("Ticks (20 per second) before the tool can be used again after Branch Finding, so holding the use",
+                        "button doesn't drain durability. 0 for none.")
+                .defineInRange(List.of("branchFinding", "cooldownTicks"), 20, 0, 1200);
         SERVER_SPEC = server.build();
     }
 
@@ -162,6 +190,14 @@ public final class SpectralConfig {
         return COMMON_SPEC.isLoaded() ? GATHER_ENABLED.get() : GATHER_ENABLED.getDefault();
     }
 
+    public static boolean branchFindingTreasureOnly() {
+        return COMMON_SPEC.isLoaded() ? BRANCH_FINDING_TREASURE_ONLY.get() : BRANCH_FINDING_TREASURE_ONLY.getDefault();
+    }
+
+    public static boolean branchFindingEnabled() {
+        return COMMON_SPEC.isLoaded() ? BRANCH_FINDING_ENABLED.get() : BRANCH_FINDING_ENABLED.getDefault();
+    }
+
     /** Broad Breaker's area width at {@code level} (levels above III use III's). */
     public static int broadBreakerArea(int level) {
         return forLevel(BREAKER_AREAS, DEFAULT_BREAKER_AREAS, level);
@@ -180,6 +216,21 @@ public final class SpectralConfig {
     /** Far Miner's mining speed as a fraction of normal. */
     public static float farMinerSpeed() {
         return (SERVER_SPEC.isLoaded() ? FAR_MINER_SPEED.get() : FAR_MINER_SPEED.getDefault()).floatValue();
+    }
+
+    /** How long Branch Finding's outlines take to fade away, in seconds. */
+    public static int branchFindingDurationSeconds() {
+        return SERVER_SPEC.isLoaded() ? BRANCH_FINDING_DURATION.get() : BRANCH_FINDING_DURATION.getDefault();
+    }
+
+    /** The most leaves one use of Branch Finding searches. */
+    public static int branchFindingMaxLeaves() {
+        return SERVER_SPEC.isLoaded() ? BRANCH_FINDING_MAX_LEAVES.get() : BRANCH_FINDING_MAX_LEAVES.getDefault();
+    }
+
+    /** Item cooldown after a use of Branch Finding, in ticks. */
+    public static int branchFindingCooldownTicks() {
+        return SERVER_SPEC.isLoaded() ? BRANCH_FINDING_COOLDOWN.get() : BRANCH_FINDING_COOLDOWN.getDefault();
     }
 
     /** Defaults until the world's server config is loaded (or synced, on a client). */

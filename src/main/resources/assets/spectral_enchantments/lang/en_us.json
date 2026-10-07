@@ -7,5 +7,7 @@
   "enchantment.spectral_enchantments.far_miner": "Far Miner",
   "enchantment.spectral_enchantments.far_miner.desc": "Look at a block beyond your reach for a moment to summon a spectral copy of the tool there, then hold attack to mine it from afar.",
   "enchantment.spectral_enchantments.gather": "Gather",
-  "enchantment.spectral_enchantments.gather.desc": "Items dropped by blocks you break or creatures you slay go straight into your inventory when there is room."
+  "enchantment.spectral_enchantments.gather.desc": "Items dropped by blocks you break or creatures you slay go straight into your inventory when there is room.",
+  "enchantment.spectral_enchantments.branch_finding": "Branch Finding",
+  "enchantment.spectral_enchantments.branch_finding.desc": "Use on leaves to outline, for a short while, every log hidden inside the canopy. Costs durability."
 }

@@ -34,6 +34,7 @@ public final class SpectralEnchantments {
         NeoForge.EVENT_BUS.register(CommonEvents.class);
         NeoForge.EVENT_BUS.register(FarMiner.class);
         NeoForge.EVENT_BUS.register(Gather.class);
+        NeoForge.EVENT_BUS.register(BranchFinding.class);
         NeoForge.EVENT_BUS.register(SpectralWeaponManager.class);
     }
 

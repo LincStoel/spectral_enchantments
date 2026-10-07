@@ -20,7 +20,8 @@ public record EnchantmentEnabledCondition(Which enchantment) implements IConditi
         BROAD_BREAKER("broad_breaker"),
         SPECTRAL_WEAPON("spectral_weapon"),
         FAR_MINER("far_miner"),
-        GATHER("gather");
+        GATHER("gather"),
+        BRANCH_FINDING("branch_finding");
 
         static final Codec<Which> CODEC = StringRepresentable.fromEnum(Which::values);
 
@@ -43,6 +44,7 @@ public record EnchantmentEnabledCondition(Which enchantment) implements IConditi
             case SPECTRAL_WEAPON -> SpectralConfig.spectralWeaponEnabled();
             case FAR_MINER -> SpectralConfig.farMinerEnabled();
             case GATHER -> SpectralConfig.gatherEnabled();
+            case BRANCH_FINDING -> SpectralConfig.branchFindingEnabled();
         };
     }
 

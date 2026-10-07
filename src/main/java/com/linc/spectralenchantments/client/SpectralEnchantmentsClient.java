@@ -27,11 +27,13 @@ public final class SpectralEnchantmentsClient {
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> {
             SpectralSessions.tick();
             FarMinerClient.tick();
+            BranchFindingClient.tick();
         });
         NeoForge.EVENT_BUS.addListener(SpectralSlotOverlay::tick);
         NeoForge.EVENT_BUS.addListener(AreaOutlineRenderer::render);
         NeoForge.EVENT_BUS.addListener(SpectralToolRenderer::render);
         NeoForge.EVENT_BUS.addListener(FarMinerRenderer::render);
+        NeoForge.EVENT_BUS.addListener(BranchFindingRenderer::render);
         NeoForge.EVENT_BUS.addListener(SpectralWeaponRenderer::render);
     }
 }

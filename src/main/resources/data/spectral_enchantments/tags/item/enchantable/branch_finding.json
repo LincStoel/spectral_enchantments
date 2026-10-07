@@ -1,0 +1,10 @@
+{
+  "values": [
+    "#minecraft:hoes",
+    "minecraft:shears",
+    {
+      "id": "#c:tools/shear",
+      "required": false
+    }
+  ]
+}

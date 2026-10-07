@@ -39,6 +39,11 @@ final class AreaOutlineRenderer {
 
     /** Same as the private LevelRenderer#renderShape, with vanilla's outline color (black, 40% alpha). */
     static void renderShape(PoseStack poseStack, VertexConsumer consumer, VoxelShape shape, double x, double y, double z) {
+        renderShape(poseStack, consumer, shape, x, y, z, 0f, 0f, 0f, 0.4f);
+    }
+
+    static void renderShape(PoseStack poseStack, VertexConsumer consumer, VoxelShape shape, double x, double y, double z,
+                            float red, float green, float blue, float alpha) {
         PoseStack.Pose pose = poseStack.last();
         shape.forAllEdges((x1, y1, z1, x2, y2, z2) -> {
             float dx = (float) (x2 - x1);
@@ -48,8 +53,8 @@ final class AreaOutlineRenderer {
             dx /= length;
             dy /= length;
             dz /= length;
-            consumer.addVertex(pose, (float) (x1 + x), (float) (y1 + y), (float) (z1 + z)).setColor(0f, 0f, 0f, 0.4f).setNormal(pose, dx, dy, dz);
-            consumer.addVertex(pose, (float) (x2 + x), (float) (y2 + y), (float) (z2 + z)).setColor(0f, 0f, 0f, 0.4f).setNormal(pose, dx, dy, dz);
+            consumer.addVertex(pose, (float) (x1 + x), (float) (y1 + y), (float) (z1 + z)).setColor(red, green, blue, alpha).setNormal(pose, dx, dy, dz);
+            consumer.addVertex(pose, (float) (x2 + x), (float) (y2 + y), (float) (z2 + z)).setColor(red, green, blue, alpha).setNormal(pose, dx, dy, dz);
         });
     }
 }

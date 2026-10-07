@@ -14,6 +14,8 @@ public final class ModEnchantments {
             ResourceKey.create(Registries.ENCHANTMENT, SpectralEnchantments.id("far_miner"));
     public static final ResourceKey<Enchantment> GATHER =
             ResourceKey.create(Registries.ENCHANTMENT, SpectralEnchantments.id("gather"));
+    public static final ResourceKey<Enchantment> BRANCH_FINDING =
+            ResourceKey.create(Registries.ENCHANTMENT, SpectralEnchantments.id("branch_finding"));
 
     private ModEnchantments() {}
 }

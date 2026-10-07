@@ -74,6 +74,22 @@
           "min_inclusive": 0,
           "max_inclusive": 2147483647
         },
+        "directory": "overlay_disable_branch_finding",
+        "neoforge:conditions": [
+          {
+            "type": "neoforge:not",
+            "value": {
+              "type": "spectral_enchantments:enchantment_enabled",
+              "enchantment": "branch_finding"
+            }
+          }
+        ]
+      },
+      {
+        "formats": {
+          "min_inclusive": 0,
+          "max_inclusive": 2147483647
+        },
         "directory": "overlay_treasure_broad_breaker",
         "neoforge:conditions": [
           {
@@ -118,6 +134,19 @@
           {
             "type": "spectral_enchantments:enchantment_treasure_only",
             "enchantment": "gather"
+          }
+        ]
+      },
+      {
+        "formats": {
+          "min_inclusive": 0,
+          "max_inclusive": 2147483647
+        },
+        "directory": "overlay_treasure_branch_finding",
+        "neoforge:conditions": [
+          {
+            "type": "spectral_enchantments:enchantment_treasure_only",
+            "enchantment": "branch_finding"
           }
         ]
       }

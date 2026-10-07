@@ -1,6 +1,7 @@
 package com.linc.spectralenchantments.network;
 
 import com.linc.spectralenchantments.FarMiner;
+import com.linc.spectralenchantments.client.BranchFindingClient;
 import com.linc.spectralenchantments.client.FarMinerClient;
 import com.linc.spectralenchantments.client.SpectralSessions;
 import net.minecraft.server.level.ServerPlayer;
@@ -22,6 +23,11 @@ public final class ModNetwork {
         registrar.playToClient(FarMineStatePayload.TYPE, FarMineStatePayload.STREAM_CODEC, (payload, context) -> {
             if (FMLEnvironment.dist.isClient()) {
                 FarMinerClient.handleState(payload);
+            }
+        });
+        registrar.playToClient(BranchFindingPayload.TYPE, BranchFindingPayload.STREAM_CODEC, (payload, context) -> {
+            if (FMLEnvironment.dist.isClient()) {
+                BranchFindingClient.handle(payload);
             }
         });
         registrar.playToServer(FarMinePayload.TYPE, FarMinePayload.STREAM_CODEC, (payload, context) -> {

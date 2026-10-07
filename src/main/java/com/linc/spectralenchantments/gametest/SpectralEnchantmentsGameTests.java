@@ -190,6 +190,7 @@ public final class SpectralEnchantmentsGameTests {
         checkAvailability(helper, ModEnchantments.SPECTRAL_WEAPON, SpectralConfig.spectralWeaponEnabled(), Items.DIAMOND_SWORD);
         checkAvailability(helper, ModEnchantments.FAR_MINER, SpectralConfig.farMinerEnabled(), Items.DIAMOND_PICKAXE);
         checkAvailability(helper, ModEnchantments.GATHER, SpectralConfig.gatherEnabled(), Items.DIAMOND_SWORD);
+        checkAvailability(helper, ModEnchantments.BRANCH_FINDING, SpectralConfig.branchFindingEnabled(), Items.IRON_HOE);
         helper.succeed();
     }
 
