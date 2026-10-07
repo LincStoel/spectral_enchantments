@@ -13,7 +13,7 @@ import net.neoforged.neoforge.common.ModConfigSpec;
  *       data packs load, so a change takes effect after a restart (or {@code /reload}).</li>
  *   <li>Server ({@code serverconfig/spectral_enchantments-server.toml} in each world, synced to clients):
  *       the Spectral Weapon ranges, Broad Breaker areas, Far Miner reaches and speed, and Branch Finding's
- *       duration, search limit and cooldown.</li>
+ *       duration, search limit and cooldown, and Animated's radii, deployment time and recall distance.</li>
  * </ul>
  */
 public final class SpectralConfig {
@@ -40,6 +40,8 @@ public final class SpectralConfig {
     private static final ModConfigSpec.BooleanValue GATHER_TREASURE_ONLY;
     private static final ModConfigSpec.BooleanValue BRANCH_FINDING_ENABLED;
     private static final ModConfigSpec.BooleanValue BRANCH_FINDING_TREASURE_ONLY;
+    private static final ModConfigSpec.BooleanValue ANIMATED_ENABLED;
+    private static final ModConfigSpec.BooleanValue ANIMATED_TREASURE_ONLY;
 
     public static final ModConfigSpec SERVER_SPEC;
     private static final ModConfigSpec.ConfigValue<List<? extends Integer>> BREAKER_AREAS;
@@ -49,6 +51,10 @@ public final class SpectralConfig {
     private static final ModConfigSpec.IntValue BRANCH_FINDING_DURATION;
     private static final ModConfigSpec.IntValue BRANCH_FINDING_MAX_LEAVES;
     private static final ModConfigSpec.IntValue BRANCH_FINDING_COOLDOWN;
+    private static final ModConfigSpec.IntValue ANIMATED_STAND_RADIUS;
+    private static final ModConfigSpec.IntValue ANIMATED_DEPLOY_RADIUS;
+    private static final ModConfigSpec.IntValue ANIMATED_DEPLOY_SECONDS;
+    private static final ModConfigSpec.IntValue ANIMATED_RECALL_DISTANCE;
 
     static {
         ModConfigSpec.Builder common = new ModConfigSpec.Builder();
@@ -97,6 +103,15 @@ public final class SpectralConfig {
                 .comment("If true, this enchantment is treasure-only: it can't be rolled at the enchanting table and is found",
                         "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
                 .define("branchFinding.treasure_only", false);
+        ANIMATED_ENABLED = common
+                .comment("Whether Animated can be obtained and works. When false it stays registered (so enchanted items",
+                        "keep it) but does nothing and no longer turns up in loot, trades or recipes.",
+                        "Takes effect after a restart or /reload.")
+                .define("animated.enabled", true);
+        ANIMATED_TREASURE_ONLY = common
+                .comment("If true, this enchantment is treasure-only: it can't be rolled at the enchanting table and is found",
+                        "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
+                .define("animated.treasure_only", true);
         COMMON_SPEC = common.build();
 
         ModConfigSpec.Builder server = new ModConfigSpec.Builder();
@@ -134,6 +149,19 @@ public final class SpectralConfig {
                 .comment("Ticks (20 per second) before the tool can be used again after Branch Finding, so holding the use",
                         "button doesn't drain durability. 0 for none.")
                 .defineInRange(List.of("branchFinding", "cooldownTicks"), 20, 0, 1200);
+        ANIMATED_STAND_RADIUS = server
+                .comment("How far from an armor stand its Animated weapon looks for hostile mobs to fight, in blocks.")
+                .defineInRange(List.of("animated", "standRadius"), 8, 1, 32);
+        ANIMATED_DEPLOY_RADIUS = server
+                .comment("How far from the spot it was left at a deployed Animated weapon fights hostile mobs, in blocks.")
+                .defineInRange(List.of("animated", "deployRadius"), 4, 1, 16);
+        ANIMATED_DEPLOY_SECONDS = server
+                .comment("How long a deployed Animated weapon fights before flying back to its owner, in seconds.")
+                .defineInRange(List.of("animated", "deploySeconds"), 15, 1, 600);
+        ANIMATED_RECALL_DISTANCE = server
+                .comment("How far the owner can stray from a deployed Animated weapon before it flies back to them, in blocks.",
+                        "Always at least one more than deployRadius.")
+                .defineInRange(List.of("animated", "recallDistance"), 16, 2, 128);
         SERVER_SPEC = server.build();
     }
 
@@ -198,6 +226,14 @@ public final class SpectralConfig {
         return COMMON_SPEC.isLoaded() ? BRANCH_FINDING_ENABLED.get() : BRANCH_FINDING_ENABLED.getDefault();
     }
 
+    public static boolean animatedTreasureOnly() {
+        return COMMON_SPEC.isLoaded() ? ANIMATED_TREASURE_ONLY.get() : ANIMATED_TREASURE_ONLY.getDefault();
+    }
+
+    public static boolean animatedEnabled() {
+        return COMMON_SPEC.isLoaded() ? ANIMATED_ENABLED.get() : ANIMATED_ENABLED.getDefault();
+    }
+
     /** Broad Breaker's area width at {@code level} (levels above III use III's). */
     public static int broadBreakerArea(int level) {
         return forLevel(BREAKER_AREAS, DEFAULT_BREAKER_AREAS, level);
@@ -231,6 +267,27 @@ public final class SpectralConfig {
     /** Item cooldown after a use of Branch Finding, in ticks. */
     public static int branchFindingCooldownTicks() {
         return SERVER_SPEC.isLoaded() ? BRANCH_FINDING_COOLDOWN.get() : BRANCH_FINDING_COOLDOWN.getDefault();
+    }
+
+    /** How far from its armor stand an Animated weapon looks for targets. */
+    public static int animatedStandRadius() {
+        return SERVER_SPEC.isLoaded() ? ANIMATED_STAND_RADIUS.get() : ANIMATED_STAND_RADIUS.getDefault();
+    }
+
+    /** How far from its anchor a deployed Animated weapon looks for targets. */
+    public static int animatedDeployRadius() {
+        return SERVER_SPEC.isLoaded() ? ANIMATED_DEPLOY_RADIUS.get() : ANIMATED_DEPLOY_RADIUS.getDefault();
+    }
+
+    /** How long a deployment lasts, in ticks. */
+    public static int animatedDeployTicks() {
+        return 20 * (SERVER_SPEC.isLoaded() ? ANIMATED_DEPLOY_SECONDS.get() : ANIMATED_DEPLOY_SECONDS.getDefault());
+    }
+
+    /** How far the owner may stray from a deployed weapon's anchor; never within its fighting radius. */
+    public static int animatedRecallDistance() {
+        int distance = SERVER_SPEC.isLoaded() ? ANIMATED_RECALL_DISTANCE.get() : ANIMATED_RECALL_DISTANCE.getDefault();
+        return Math.max(distance, animatedDeployRadius() + 1);
     }
 
     /** Defaults until the world's server config is loaded (or synced, on a client). */

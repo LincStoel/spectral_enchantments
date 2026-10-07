@@ -1,0 +1,36 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "ars_nouveau"
+    },
+    {
+      "type": "spectral_enchantments:enchantment_enabled",
+      "enchantment": "animated"
+    }
+  ],
+  "type": "ars_nouveau:enchantment",
+  "enchantment": "spectral_enchantments:animated",
+  "level": 1,
+  "pedestalItems": [
+    {
+      "item": "ars_nouveau:source_gem_block"
+    },
+    {
+      "item": "ars_nouveau:source_gem_block"
+    },
+    {
+      "item": "ars_nouveau:conjuration_essence"
+    },
+    {
+      "item": "ars_nouveau:conjuration_essence"
+    },
+    {
+      "item": "minecraft:armor_stand"
+    },
+    {
+      "item": "minecraft:echo_shard"
+    }
+  ],
+  "sourceCost": 3000
+}

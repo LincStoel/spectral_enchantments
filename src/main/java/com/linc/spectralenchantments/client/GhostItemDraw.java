@@ -30,6 +30,12 @@ final class GhostItemDraw {
     /** Renders {@code stack} in {@code tint} (RGB) at the current pose, as it would be shown in {@code context}. */
     static void draw(Minecraft mc, GhostTextures.Ghost ghost, ItemStack stack, float visibility, int tint, boolean shaderPack,
                      ItemDisplayContext context, PoseStack poseStack, MultiBufferSource.BufferSource buffers, int seed) {
+        draw(mc, ghost, stack, visibility, tint, shaderPack, context, false, poseStack, buffers, seed);
+    }
+
+    /** As above; {@code leftHand} mirrors a hand context's transform for an item held in the left hand. */
+    static void draw(Minecraft mc, GhostTextures.Ghost ghost, ItemStack stack, float visibility, int tint, boolean shaderPack,
+                     ItemDisplayContext context, boolean leftHand, PoseStack poseStack, MultiBufferSource.BufferSource buffers, int seed) {
         int alpha = (int) (Mth.clamp(visibility, 0f, 1f) * MAX_ALPHA * 255f);
         // Shaderpacks light (and often bloom) the ghost far brighter than vanilla does; dim it to match.
         int color = shaderPack && context != ItemDisplayContext.GUI ? scale(tint, SpectralClientConfig.shaderBrightness()) : tint;
@@ -38,8 +44,8 @@ final class GhostItemDraw {
         RenderType type = context == ItemDisplayContext.GUI ? ghost.guiRenderType
                 : shaderPack && visibility < 0.999f ? ghost.litRenderType : ghost.renderType;
         MultiBufferSource ghostBuffers = requested -> new GhostVertexConsumer(buffers.getBuffer(type), ghost, color, alpha);
-        mc.getItemRenderer().renderStatic(stack, context, LightTexture.FULL_BRIGHT,
-                OverlayTexture.NO_OVERLAY, poseStack, ghostBuffers, mc.level, seed);
+        mc.getItemRenderer().renderStatic(null, stack, context, leftHand, poseStack, ghostBuffers, mc.level,
+                LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, seed);
     }
 
     private static int scale(int rgb, float factor) {

@@ -1,5 +1,6 @@
 package com.linc.spectralenchantments.client;
 
+import com.linc.spectralenchantments.animated.AnimatedWeaponEntity;
 import com.linc.spectralenchantments.spectral.SpectralWeaponEntity;
 import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -23,15 +24,17 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterItemDecorationsEvent;
 
 /**
- * While the local player's spectral weapon is out, its item's slot icon (hotbar and inventory) is washed
- * with a ghostly overlay: the item drawn again over itself in its ghost colour, fading with the weapon.
+ * While the local player's spectral weapon (or deployed Animated weapon) is out, its item's slot icon (hotbar and
+ * inventory) is washed with a ghostly overlay: the item drawn again over itself in its ghost colour, fading with
+ * the spectral weapon.
  */
 final class SpectralSlotOverlay {
     /** How strongly the overlay covers the icon, 0-1 (scaled by the ghost's own maximum alpha). */
     private static final float STRENGTH = 0.8f;
+    /** A deployed Animated weapon's icon is washed out completely. */
+    private static final float DEPLOYED_STRENGTH = 1f;
 
     private static WeakReference<SpectralWeaponEntity> localWeapon = new WeakReference<>(null);
-
 
     private SpectralSlotOverlay() {}
 
@@ -68,14 +71,29 @@ final class SpectralSlotOverlay {
     private static boolean render(GuiGraphics graphics, Font font, ItemStack stack, int x, int y) {
         Minecraft mc = Minecraft.getInstance();
         Player player = mc.player;
-        SpectralWeaponEntity weapon = activeWeapon();
-        // The very stack in the weapon's slot, so a look-alike elsewhere in the inventory stays plain.
-        if (player == null || weapon == null || stack != player.getInventory().getItem(weapon.getSlot())) {
+        if (player == null) {
             return false;
         }
         float partialTick = mc.getTimer().getGameTimeDeltaPartialTick(true);
-        float fade = Mth.lerp(partialTick, weapon.fadeO, weapon.fade);
-        GhostTextures.Ghost ghost = fade > 0f ? GhostTextures.get(stack) : null;
+        // The very stack in the weapon's slot, so a look-alike elsewhere in the inventory stays plain.
+        SpectralWeaponEntity weapon = activeWeapon();
+        if (weapon != null && stack == player.getInventory().getItem(weapon.getSlot())) {
+            float fade = Mth.lerp(partialTick, weapon.fadeO, weapon.fade);
+            return fade > 0f && drawGhost(graphics, mc, player, stack, x, y, fade * STRENGTH,
+                    GhostTint.of(stack, weapon.tickCount + partialTick));
+        }
+        // A deployed Animated weapon is out of the player's hands until it comes back.
+        AnimatedWeaponEntity animated = AnimatedClient.localDeployed();
+        if (animated != null && stack == player.getInventory().getItem(animated.getSlot())) {
+            return drawGhost(graphics, mc, player, stack, x, y, DEPLOYED_STRENGTH, GhostTint.of(stack, animated.tickCount + partialTick));
+        }
+        return false;
+    }
+
+    /** Draws the ghost of {@code stack} over its slot icon at {@code visibility} (0-1). */
+    private static boolean drawGhost(GuiGraphics graphics, Minecraft mc, Player player, ItemStack stack, int x, int y,
+                                     float visibility, int tint) {
+        GhostTextures.Ghost ghost = GhostTextures.get(stack);
         if (ghost == null) {
             return false;
         }
@@ -97,8 +115,7 @@ final class SpectralSlotOverlay {
         // Without its glint: the glint pass would be drawn through the same ghost buffer and garble the quads.
         ItemStack plain = stack.copyWithCount(1);
         plain.set(DataComponents.ENCHANTMENT_GLINT_OVERRIDE, false);
-        GhostItemDraw.draw(mc, ghost, plain, fade * STRENGTH, GhostTint.of(stack, weapon.tickCount + partialTick), false,
-                ItemDisplayContext.GUI, pose, graphics.bufferSource(), 0);
+        GhostItemDraw.draw(mc, ghost, plain, visibility, tint, false, ItemDisplayContext.GUI, pose, graphics.bufferSource(), 0);
         GhostItemDraw.endBatch(graphics.bufferSource(), ghost);
         RenderSystem.setShaderFogStart(fogStart);
         if (flat) {

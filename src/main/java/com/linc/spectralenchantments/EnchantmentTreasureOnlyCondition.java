@@ -23,6 +23,7 @@ public record EnchantmentTreasureOnlyCondition(EnchantmentEnabledCondition.Which
             case FAR_MINER -> SpectralConfig.farMinerEnabled() && SpectralConfig.farMinerTreasureOnly();
             case GATHER -> SpectralConfig.gatherEnabled() && SpectralConfig.gatherTreasureOnly();
             case BRANCH_FINDING -> SpectralConfig.branchFindingEnabled() && SpectralConfig.branchFindingTreasureOnly();
+            case ANIMATED -> SpectralConfig.animatedEnabled() && SpectralConfig.animatedTreasureOnly();
         };
     }
 

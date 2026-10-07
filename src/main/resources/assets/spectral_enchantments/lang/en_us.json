@@ -9,5 +9,8 @@
   "enchantment.spectral_enchantments.gather": "Gather",
   "enchantment.spectral_enchantments.gather.desc": "Items dropped by blocks you break or creatures you slay go straight into your inventory when there is room.",
   "enchantment.spectral_enchantments.branch_finding": "Branch Finding",
-  "enchantment.spectral_enchantments.branch_finding.desc": "Use on leaves to outline, for a short while, every log hidden inside the canopy. Costs durability."
+  "enchantment.spectral_enchantments.branch_finding.desc": "Use on leaves to outline, for a short while, every log hidden inside the canopy. Costs durability.",
+  "enchantment.spectral_enchantments.animated": "Animated",
+  "enchantment.spectral_enchantments.animated.desc": "Give the weapon to an armor stand and it flies out to fight hostile mobs nearby. Or sneak and use it on the ground to leave it fighting there for a while.",
+  "entity.spectral_enchantments.animated_weapon": "Animated Weapon"
 }

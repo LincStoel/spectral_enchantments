@@ -5,6 +5,7 @@
     "#spectral_enchantments:non_treasure/spectral_weapon",
     "#spectral_enchantments:non_treasure/far_miner",
     "#spectral_enchantments:non_treasure/gather",
-    "#spectral_enchantments:non_treasure/branch_finding"
+    "#spectral_enchantments:non_treasure/branch_finding",
+    "#spectral_enchantments:non_treasure/animated"
   ]
 }

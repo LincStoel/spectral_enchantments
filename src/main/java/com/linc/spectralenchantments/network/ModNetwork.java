@@ -1,6 +1,7 @@
 package com.linc.spectralenchantments.network;
 
 import com.linc.spectralenchantments.FarMiner;
+import com.linc.spectralenchantments.animated.AnimatedManager;
 import com.linc.spectralenchantments.client.BranchFindingClient;
 import com.linc.spectralenchantments.client.FarMinerClient;
 import com.linc.spectralenchantments.client.SpectralSessions;
@@ -33,6 +34,11 @@ public final class ModNetwork {
         registrar.playToServer(FarMinePayload.TYPE, FarMinePayload.STREAM_CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) {
                 FarMiner.handle(player, payload);
+            }
+        });
+        registrar.playToServer(AnimatedRecallPayload.TYPE, AnimatedRecallPayload.STREAM_CODEC, (payload, context) -> {
+            if (context.player() instanceof ServerPlayer player) {
+                AnimatedManager.recallFromHand(player);
             }
         });
     }

@@ -1,7 +1,9 @@
 package com.linc.spectralenchantments;
 
+import com.linc.spectralenchantments.animated.AnimatedManager;
 import com.linc.spectralenchantments.network.ModNetwork;
 import com.linc.spectralenchantments.spectral.SpectralWeaponManager;
+import com.linc.spectralenchantments.spectral.WeaponStrike;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.resources.ResourceLocation;
 import net.neoforged.bus.api.IEventBus;
@@ -36,6 +38,8 @@ public final class SpectralEnchantments {
         NeoForge.EVENT_BUS.register(Gather.class);
         NeoForge.EVENT_BUS.register(BranchFinding.class);
         NeoForge.EVENT_BUS.register(SpectralWeaponManager.class);
+        NeoForge.EVENT_BUS.register(WeaponStrike.class);
+        NeoForge.EVENT_BUS.register(AnimatedManager.class);
     }
 
     public static ResourceLocation id(String path) {

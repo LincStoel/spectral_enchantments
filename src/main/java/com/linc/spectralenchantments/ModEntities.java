@@ -1,5 +1,6 @@
 package com.linc.spectralenchantments;
 
+import com.linc.spectralenchantments.animated.AnimatedWeaponEntity;
 import com.linc.spectralenchantments.spectral.SpectralWeaponEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.entity.EntityType;
@@ -20,6 +21,16 @@ public final class ModEntities {
                     .noSummon()
                     .fireImmune()
                     .build("spectral_weapon"));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<AnimatedWeaponEntity>> ANIMATED_WEAPON =
+            ENTITY_TYPES.register("animated_weapon", () -> EntityType.Builder.<AnimatedWeaponEntity>of(AnimatedWeaponEntity::new, MobCategory.MISC)
+                    .sized(0.5f, 0.5f)
+                    .clientTrackingRange(8)
+                    .updateInterval(1)
+                    .noSave()
+                    .noSummon()
+                    .fireImmune()
+                    .build("animated_weapon"));
 
     private ModEntities() {}
 }
