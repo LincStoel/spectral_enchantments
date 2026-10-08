@@ -17,7 +17,7 @@ import net.minecraft.world.item.ItemStack;
 /**
  * Draws an Animated weapon: the real item, lit and glinting like any dropped item (so it renders normally under
  * shaderpacks), swung with the same poses as a spectral weapon. A deployed weapon with nothing to fight hangs
- * point down and turns slowly; one flying home points the way it's going.
+ * point down, still; one flying home points the way it's going.
  */
 final class AnimatedWeaponRenderer extends EntityRenderer<AnimatedWeaponEntity> {
     private static final float IDLE_PITCH = 180f;
@@ -40,15 +40,15 @@ final class AnimatedWeaponRenderer extends EntityRenderer<AnimatedWeaponEntity> 
         }
         float age = weapon.tickCount + partialTick;
         float engage = Mth.lerp(partialTick, weapon.engageO, weapon.engage);
-        float bob = Mth.sin(age * 0.08f) * 0.06f;
-        float spin = weapon.isReturning() ? 0f : Mth.lerp(partialTick, weapon.spinO, weapon.spin);
+        // At rest it hangs perfectly still, point down; it only bobs once roused.
+        float bob = Mth.sin(age * 0.08f) * 0.06f * engage;
 
         WeaponPoses.Pose idle = new WeaponPoses.Pose(weapon.isReturning() ? RETURN_PITCH : IDLE_PITCH, 0f, 0f, bob, 0f);
         WeaponPoses.Pose ready = new WeaponPoses.Pose(WeaponPoses.READY_PITCH, 0f, 0f, bob * 0.5f, 0f);
         WeaponPoses.Pose pose = WeaponPoses.current(weapon, partialTick, WeaponPoses.Pose.lerp(engage, idle, ready), ready);
 
         poseStack.pushPose();
-        poseStack.mulPose(Axis.YP.rotationDegrees(-weapon.getViewYRot(partialTick) - spin));
+        poseStack.mulPose(Axis.YP.rotationDegrees(-weapon.getViewYRot(partialTick)));
         WeaponPoses.applyGrip(poseStack, pose);
         WeaponPoses.applyTool(poseStack);
         itemRenderer.renderStatic(stack, ItemDisplayContext.NONE, packedLight, OverlayTexture.NO_OVERLAY, poseStack, buffers,

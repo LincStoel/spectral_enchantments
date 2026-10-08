@@ -1,0 +1,30 @@
+{
+  "description": {
+    "translate": "enchantment.spectral_enchantments.possession_curse"
+  },
+  "supported_items": {
+    "type": "neoforge:and",
+    "values": [
+      "#spectral_enchantments:enchantable/possession_curse",
+      {
+        "type": "neoforge:not",
+        "value": "#spectral_enchantments:enchantable/spectral_weapon_excluded"
+      }
+    ]
+  },
+  "weight": 1,
+  "max_level": 1,
+  "min_cost": {
+    "base": 25,
+    "per_level_above_first": 25
+  },
+  "max_cost": {
+    "base": 50,
+    "per_level_above_first": 25
+  },
+  "anvil_cost": 8,
+  "slots": [
+    "mainhand",
+    "offhand"
+  ]
+}

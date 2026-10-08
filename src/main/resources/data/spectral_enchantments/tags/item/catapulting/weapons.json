@@ -4,6 +4,21 @@
     "#minecraft:pickaxes",
     "#minecraft:shovels",
     "#minecraft:hoes",
-    { "id": "#c:tools/mining_tool", "required": false }
+    {
+      "id": "#c:tools/mining_tool",
+      "required": false
+    },
+    {
+      "id": "quark:pickarang",
+      "required": false
+    },
+    {
+      "id": "quark:flamerang",
+      "required": false
+    },
+    {
+      "id": "quark:echorang",
+      "required": false
+    }
   ]
 }

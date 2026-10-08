@@ -22,7 +22,7 @@ import net.minecraft.world.phys.Vec3;
  * never touched or hurt. The server flies it and times its swings; the client interpolates its position and
  * plays the swing it is told about (see the client's WeaponPoses).
  */
-public abstract class FlyingWeaponEntity extends Entity {
+public abstract class FlyingWeaponEntity extends Entity implements SwingingWeapon {
     protected static final int NO_TARGET = -1;
     private static final double SNAP_DISTANCE = 24;
 
@@ -160,10 +160,25 @@ public abstract class FlyingWeaponEntity extends Entity {
         engage = approach(engage, hasTarget() || isAttacking(0f) ? 1f : 0f, 0.2f);
     }
 
-    /** Swing progress 0-1, or a negative value when not swinging. */
+    @Override
     public float attackProgress(float partialTick) {
         float t = (tickCount + partialTick - attackStartTick) / attackDuration;
         return t >= 0f && t < 1f ? t : -1f;
+    }
+
+    @Override
+    public AttackStyle attackStyle() {
+        return attackStyle;
+    }
+
+    @Override
+    public boolean attackMirrored() {
+        return attackMirrored;
+    }
+
+    @Override
+    public float attackUpswing() {
+        return attackUpswing;
     }
 
     public boolean isAttacking(float partialTick) {

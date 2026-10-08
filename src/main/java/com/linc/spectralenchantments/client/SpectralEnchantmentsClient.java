@@ -28,6 +28,8 @@ public final class SpectralEnchantmentsClient {
             event.registerEntityRenderer(ModEntities.CATAPULTED_WEAPON.get(), ItemArrowRenderer::new);
             event.registerEntityRenderer(ModEntities.CATAPULTED_ITEM.get(), TumblingItemRenderer::new);
             event.registerEntityRenderer(ModEntities.BLAZE_BOLT.get(), ItemArrowRenderer::new);
+            event.registerEntityRenderer(ModEntities.WATER_BOLT.get(), ItemArrowRenderer::new);
+            event.registerEntityRenderer(ModEntities.POSSESSED_WEAPON.get(), PossessedWeaponRenderer::new);
         });
         modBus.addListener(SpectralSlotOverlay::register);
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> {
@@ -37,6 +39,9 @@ public final class SpectralEnchantmentsClient {
             AnimatedClient.tick();
         });
         NeoForge.EVENT_BUS.addListener(SpectralSlotOverlay::tick);
+        NeoForge.EVENT_BUS.addListener(CurseInput::onClientTick);
+        // Last, so lines other mods add for the curse (Enchantment Descriptions) are there to remove too.
+        NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, CurseTooltips::onTooltip);
         NeoForge.EVENT_BUS.addListener(AreaOutlineRenderer::render);
         NeoForge.EVENT_BUS.addListener(SpectralToolRenderer::render);
         NeoForge.EVENT_BUS.addListener(FarMinerRenderer::render);

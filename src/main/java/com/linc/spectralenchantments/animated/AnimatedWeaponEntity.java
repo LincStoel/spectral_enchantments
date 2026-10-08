@@ -5,9 +5,11 @@ import com.linc.spectralenchantments.spectral.FlyingWeaponEntity;
 import com.linc.spectralenchantments.spectral.SpectralWeapons;
 import com.linc.spectralenchantments.spectral.WeaponProfile;
 import com.linc.spectralenchantments.spectral.WeaponStrike;
+import java.util.UUID;
 import javax.annotation.Nullable;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -38,11 +40,15 @@ import net.minecraft.world.phys.Vec3;
  *       are left. Its kills are nobody's: no XP, no player-only loot.</li>
  *   <li>Deployed: left floating at a spot by a player, fighting hostile mobs that come near it until time runs out
  *       or it is recalled. Its kills are the player's.</li>
+ *   <li>Thrown: a thrown or fired Animated weapon that landed, standing sentry where it came down. Unlike the others
+ *       it holds the item itself (so it is saved with the world); it flies back into its owner's inventory when time
+ *       runs out or they stray past the thrown recall distance, and drops the item if they are gone.</li>
  * </ul>
  */
 public class AnimatedWeaponEntity extends FlyingWeaponEntity {
     public static final byte GUARDING = 0;
     public static final byte DEPLOYED = 1;
+    public static final byte THROWN = 2;
 
     private static final double SEEK_SPEED = 0.6;
     private static final double RETURN_SPEED = 0.7;
@@ -50,6 +56,8 @@ public class AnimatedWeaponEntity extends FlyingWeaponEntity {
     private static final double LEASH_SLACK = SpectralWeapons.LEASH_SLACK;
     /** Ticks between looks for a new target while it has none. */
     private static final int SEARCH_INTERVAL = 5;
+    /** How long a loaded thrown weapon waits for its owner to turn up before dropping the item. */
+    private static final int OWNER_GRACE_TICKS = 100;
 
     private static final EntityDataAccessor<ItemStack> ITEM = SynchedEntityData.defineId(AnimatedWeaponEntity.class, EntityDataSerializers.ITEM_STACK);
     private static final EntityDataAccessor<Byte> MODE = SynchedEntityData.defineId(AnimatedWeaponEntity.class, EntityDataSerializers.BYTE);
@@ -70,10 +78,14 @@ public class AnimatedWeaponEntity extends FlyingWeaponEntity {
     private int deployTicksLeft;
     @Nullable
     private WeaponProfile profile;
-
-    // Client state, read by the renderer.
-    public float spin;
-    public float spinO;
+    /** Thrown: whose weapon it is, kept across saves. */
+    @Nullable
+    private UUID ownerId;
+    /** Thrown: it was fired from the off hand, so it goes back there if it can. */
+    private boolean toOffhand;
+    /** Thrown: a creative-mode copy, which vanishes rather than being handed back. */
+    private boolean creativeCopy;
+    private int ownerMissingTicks;
 
     public AnimatedWeaponEntity(EntityType<? extends AnimatedWeaponEntity> type, Level level) {
         super(type, level);
@@ -120,13 +132,36 @@ public class AnimatedWeaponEntity extends FlyingWeaponEntity {
         playSound(SoundEvents.TRIDENT_THROW.value(), 0.6f, 1.3f);
     }
 
-    /** Flies back to its holder, done fighting. A recalled deployed weapon is the owner's again at once. */
+    /** Stands sentry at {@code at} with {@code stack}, a thrown weapon that landed at {@code from}. */
+    void sentry(Player owner, ItemStack stack, Vec3 from, Vec3 at, boolean toOffhand, boolean creativeCopy) {
+        this.owner = owner;
+        this.ownerId = owner.getUUID();
+        this.stack = stack;
+        this.anchor = at;
+        this.toOffhand = toOffhand;
+        this.creativeCopy = creativeCopy;
+        this.deployTicksLeft = SpectralConfig.animatedDeployTicks();
+        entityData.set(MODE, THROWN);
+        entityData.set(HOME_ID, owner.getId());
+        entityData.set(ITEM, displayCopy(stack));
+        moveTo(from.x, from.y, from.z, owner.getYRot(), 0f);
+        playSound(SoundEvents.TRIDENT_RIPTIDE_1.value(), 0.5f, 1.4f);
+    }
+
+    /**
+     * Flies back to its holder, done fighting. A recalled deployed weapon is the owner's again at once, though it
+     * can't be swung for a moment.
+     */
     public void recall() {
         if (!isReturning()) {
             entityData.set(RETURNING, true);
             setTarget(null);
             impactTick = -1;
             playSound(SoundEvents.TRIDENT_RETURN, 0.6f, 1.2f);
+            int cooldown = SpectralConfig.animatedRecallCooldownTicks();
+            if (isDeployed() && owner != null && cooldown > 0 && !stack.isEmpty()) {
+                owner.getCooldowns().addCooldown(stack.getItem(), cooldown);
+            }
         }
     }
 
@@ -143,6 +178,11 @@ public class AnimatedWeaponEntity extends FlyingWeaponEntity {
 
     public boolean isDeployed() {
         return entityData.get(MODE) == DEPLOYED;
+    }
+
+    /** A thrown weapon standing sentry where it landed. */
+    public boolean isThrown() {
+        return entityData.get(MODE) == THROWN;
     }
 
     public boolean isReturning() {
@@ -186,6 +226,8 @@ public class AnimatedWeaponEntity extends FlyingWeaponEntity {
             clientTick();
         } else if (isDeployed()) {
             deployedTick();
+        } else if (isThrown()) {
+            thrownTick();
         } else {
             guardingTick();
         }
@@ -234,7 +276,7 @@ public class AnimatedWeaponEntity extends FlyingWeaponEntity {
             entityData.set(SLOT, slot);
         }
         if (!isReturning() && (--deployTicksLeft <= 0
-                || owner.position().distanceTo(anchor) > SpectralConfig.animatedRecallDistance())) {
+                || owner.position().distanceTo(anchor) > Animated.recallDistance(stack, false))) {
             recall();
         }
         if (isReturning()) {
@@ -242,6 +284,56 @@ public class AnimatedWeaponEntity extends FlyingWeaponEntity {
             return;
         }
         fight(anchor, SpectralConfig.animatedDeployRadius(), null, false);
+    }
+
+    private void thrownTick() {
+        if (owner == null || owner.isRemoved()) {
+            owner = ownerId != null ? level().getPlayerByUUID(ownerId) : null;
+            if (owner == null) {
+                // Its owner left (or hasn't joined since the world loaded): leave the weapon where they can find it.
+                if (++ownerMissingTicks > OWNER_GRACE_TICKS || ownerId == null) {
+                    dropItem();
+                }
+                return;
+            }
+            entityData.set(HOME_ID, owner.getId());
+        }
+        ownerMissingTicks = 0;
+        if (!owner.isAlive() || owner.level() != level() || stack.isEmpty()) {
+            dropItem();
+            return;
+        }
+        if (!isReturning() && (--deployTicksLeft <= 0 || !Animated.has(level(), stack)
+                || owner.position().distanceTo(anchor) > Animated.recallDistance(stack, true))) {
+            recall();
+        }
+        if (isReturning()) {
+            flyHome(owner.getEyePosition().subtract(0, 0.4, 0), owner.getYRot());
+            return;
+        }
+        fight(anchor, SpectralConfig.animatedDeployRadius(), null, false);
+    }
+
+    /** Thrown: back to the owner (the off hand if it was fired from there), else their inventory, else at their feet. */
+    private void handBack() {
+        if (creativeCopy || stack.isEmpty() || owner == null) {
+            return;
+        }
+        if (toOffhand && owner.getOffhandItem().isEmpty()) {
+            owner.setItemInHand(InteractionHand.OFF_HAND, stack);
+        } else if (!owner.getInventory().add(stack)) {
+            owner.drop(stack, false);
+        }
+        stack = ItemStack.EMPTY;
+    }
+
+    /** Thrown: leaves the item lying where the weapon is. */
+    private void dropItem() {
+        if (!creativeCopy && !stack.isEmpty()) {
+            spawnAtLocation(stack, 0f);
+        }
+        stack = ItemStack.EMPTY;
+        discard();
     }
 
     /** The hotbar slot (or the off hand) still holding the deployed stack, or -1 if it has left them. */
@@ -305,7 +397,7 @@ public class AnimatedWeaponEntity extends FlyingWeaponEntity {
 
     private void strike(LivingEntity target) {
         WeaponProfile.AttackStep step = profile.step(combo - 1);
-        if (isDeployed()) {
+        if (isDeployed() || isThrown()) {
             // The player's attack: their kill, their XP, their loot (with the weapon's Looting).
             WeaponStrike.hit(this, damageSource(DamageTypes.PLAYER_ATTACK, owner), stack, profile, step, target, owner, owner);
         } else {
@@ -321,8 +413,11 @@ public class AnimatedWeaponEntity extends FlyingWeaponEntity {
     private void flyHome(Vec3 home, float yaw) {
         double distance = position().distanceTo(home);
         if (distance < 0.35) {
-            if (isDeployed()) {
+            if (isDeployed() || isThrown()) {
                 playSound(SoundEvents.ITEM_PICKUP, 0.3f, 1.4f);
+            }
+            if (isThrown()) {
+                handBack();
             }
             discard();
             return;
@@ -330,12 +425,40 @@ public class AnimatedWeaponEntity extends FlyingWeaponEntity {
         moveToward(home, distance < 2 ? yaw : yawTo(home), Math.max(RETURN_SPEED, distance * 0.3));
     }
 
+    /** Thrown weapons hold the real item, so they are saved; the others are only ever shown. */
     @Override
-    protected void clientTick() {
-        super.clientTick();
-        spinO = spin;
-        // Idle deployed weapons turn slowly in place.
-        spin += isDeployed() && !hasTarget() && !isReturning() ? 3f : 0f;
+    public boolean shouldBeSaved() {
+        return isThrown() && !stack.isEmpty() && (getRemovalReason() == null || getRemovalReason().shouldSave()) && !isPassenger();
+    }
+
+    @Override
+    protected void addAdditionalSaveData(CompoundTag tag) {
+        if (isThrown() && !stack.isEmpty()) {
+            tag.put("Weapon", stack.save(registryAccess()));
+            if (ownerId != null) {
+                tag.putUUID("Owner", ownerId);
+            }
+            tag.putDouble("AnchorX", anchor.x);
+            tag.putDouble("AnchorY", anchor.y);
+            tag.putDouble("AnchorZ", anchor.z);
+            tag.putInt("TicksLeft", deployTicksLeft);
+            tag.putBoolean("ToOffhand", toOffhand);
+            tag.putBoolean("Returning", isReturning());
+        }
+    }
+
+    @Override
+    protected void readAdditionalSaveData(CompoundTag tag) {
+        if (tag.contains("Weapon")) {
+            stack = ItemStack.parseOptional(registryAccess(), tag.getCompound("Weapon"));
+            ownerId = tag.hasUUID("Owner") ? tag.getUUID("Owner") : null;
+            anchor = new Vec3(tag.getDouble("AnchorX"), tag.getDouble("AnchorY"), tag.getDouble("AnchorZ"));
+            deployTicksLeft = tag.getInt("TicksLeft");
+            toOffhand = tag.getBoolean("ToOffhand");
+            entityData.set(MODE, THROWN);
+            entityData.set(ITEM, displayCopy(stack));
+            entityData.set(RETURNING, tag.getBoolean("Returning"));
+        }
     }
 
     /** Render copy: one item, durability stripped (the real item flies, glint and all). */

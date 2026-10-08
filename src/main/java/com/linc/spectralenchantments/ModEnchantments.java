@@ -22,6 +22,8 @@ public final class ModEnchantments {
             ResourceKey.create(Registries.ENCHANTMENT, SpectralEnchantments.id("catapulting"));
     public static final ResourceKey<Enchantment> EXPLOSIVE_BOLTS =
             ResourceKey.create(Registries.ENCHANTMENT, SpectralEnchantments.id("explosive_bolts"));
+    public static final ResourceKey<Enchantment> POSSESSION_CURSE =
+            ResourceKey.create(Registries.ENCHANTMENT, SpectralEnchantments.id("possession_curse"));
 
     private ModEnchantments() {}
 }

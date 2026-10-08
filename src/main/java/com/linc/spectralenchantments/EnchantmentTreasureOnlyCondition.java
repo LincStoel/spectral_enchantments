@@ -26,6 +26,7 @@ public record EnchantmentTreasureOnlyCondition(EnchantmentEnabledCondition.Which
             case ANIMATED -> SpectralConfig.animatedEnabled() && SpectralConfig.animatedTreasureOnly();
             case CATAPULTING -> SpectralConfig.catapultingEnabled() && SpectralConfig.catapultingTreasureOnly();
             case EXPLOSIVE_BOLTS -> SpectralConfig.explosiveBoltsEnabled() && SpectralConfig.explosiveBoltsTreasureOnly();
+            case POSSESSION_CURSE -> SpectralConfig.possessionCurseEnabled() && SpectralConfig.possessionCurseTreasureOnly();
         };
     }
 

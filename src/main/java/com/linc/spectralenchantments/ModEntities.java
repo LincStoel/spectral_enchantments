@@ -3,7 +3,9 @@ package com.linc.spectralenchantments;
 import com.linc.spectralenchantments.animated.AnimatedWeaponEntity;
 import com.linc.spectralenchantments.catapult.CatapultedItem;
 import com.linc.spectralenchantments.catapult.CatapultedWeapon;
+import com.linc.spectralenchantments.curse.PossessedWeaponEntity;
 import com.linc.spectralenchantments.explosive.BlazeBolt;
+import com.linc.spectralenchantments.explosive.WaterBolt;
 import com.linc.spectralenchantments.spectral.SpectralWeaponEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.entity.EntityType;
@@ -30,7 +32,6 @@ public final class ModEntities {
                     .sized(0.5f, 0.5f)
                     .clientTrackingRange(8)
                     .updateInterval(1)
-                    .noSave()
                     .noSummon()
                     .fireImmune()
                     .build("animated_weapon"));
@@ -39,14 +40,14 @@ public final class ModEntities {
             ENTITY_TYPES.register("catapulted_weapon", () -> EntityType.Builder.<CatapultedWeapon>of(CatapultedWeapon::new, MobCategory.MISC)
                     .sized(0.5f, 0.5f)
                     .eyeHeight(0.13f)
-                    .clientTrackingRange(4)
+                    .clientTrackingRange(10)
                     .updateInterval(20)
                     .build("catapulted_weapon"));
 
     public static final DeferredHolder<EntityType<?>, EntityType<CatapultedItem>> CATAPULTED_ITEM =
             ENTITY_TYPES.register("catapulted_item", () -> EntityType.Builder.<CatapultedItem>of(CatapultedItem::new, MobCategory.MISC)
                     .sized(0.25f, 0.25f)
-                    .clientTrackingRange(4)
+                    .clientTrackingRange(10)
                     .updateInterval(10)
                     .build("catapulted_item"));
 
@@ -57,6 +58,21 @@ public final class ModEntities {
                     .clientTrackingRange(4)
                     .updateInterval(20)
                     .build("blaze_bolt"));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<WaterBolt>> WATER_BOLT =
+            ENTITY_TYPES.register("water_bolt", () -> EntityType.Builder.<WaterBolt>of(WaterBolt::new, MobCategory.MISC)
+                    .sized(0.5f, 0.5f)
+                    .eyeHeight(0.13f)
+                    .clientTrackingRange(4)
+                    .updateInterval(20)
+                    .build("water_bolt"));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<PossessedWeaponEntity>> POSSESSED_WEAPON =
+            ENTITY_TYPES.register("possessed_weapon", () -> EntityType.Builder.<PossessedWeaponEntity>of(PossessedWeaponEntity::new, MobCategory.MONSTER)
+                    .sized(0.6f, 0.9f)
+                    .eyeHeight(0.45f)
+                    .clientTrackingRange(8)
+                    .build("possessed_weapon"));
 
     private ModEntities() {}
 }

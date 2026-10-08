@@ -24,7 +24,8 @@ public record EnchantmentEnabledCondition(Which enchantment) implements IConditi
         BRANCH_FINDING("branch_finding"),
         ANIMATED("animated"),
         CATAPULTING("catapulting"),
-        EXPLOSIVE_BOLTS("explosive_bolts");
+        EXPLOSIVE_BOLTS("explosive_bolts"),
+        POSSESSION_CURSE("possession_curse");
 
         static final Codec<Which> CODEC = StringRepresentable.fromEnum(Which::values);
 
@@ -51,6 +52,7 @@ public record EnchantmentEnabledCondition(Which enchantment) implements IConditi
             case ANIMATED -> SpectralConfig.animatedEnabled();
             case CATAPULTING -> SpectralConfig.catapultingEnabled();
             case EXPLOSIVE_BOLTS -> SpectralConfig.explosiveBoltsEnabled();
+            case POSSESSION_CURSE -> SpectralConfig.possessionCurseEnabled();
         };
     }
 

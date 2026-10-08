@@ -2,6 +2,7 @@ package com.linc.spectralenchantments.animated;
 
 import com.linc.spectralenchantments.ModEntities;
 import com.linc.spectralenchantments.SpectralConfig;
+import com.linc.spectralenchantments.catapult.CatapultedWeapon;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -16,11 +17,16 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.EnchantmentEffectComponents;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.ICancellableEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.common.util.FakePlayer;
+import net.neoforged.neoforge.event.entity.living.LivingDeathEvent;
+import net.neoforged.neoforge.event.entity.living.LivingExperienceDropEvent;
 import net.neoforged.neoforge.event.entity.player.AttackEntityEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.tick.EntityTickEvent;
@@ -31,7 +37,10 @@ import net.neoforged.neoforge.event.tick.EntityTickEvent;
  * <ul>
  *   <li>Armor stands holding an Animated weapon look for hostile mobs every so often and send it out after them.</li>
  *   <li>Using an Animated weapon on a block while sneaking leaves it fighting there ({@link AnimatedWeaponEntity}).
- *       Using it or attacking with it again while it is out calls it back instead.</li>
+ *       Using it or attacking with it again while it is out calls it back instead; once back it can't be swung for a
+ *       moment.</li>
+ *   <li>A thrown (or fired) Animated weapon stands guard where it lands.</li>
+ *   <li>An Animated weapon with Mending mends itself from what it slays, as if a player had wielded it.</li>
  * </ul>
  */
 public final class AnimatedManager {
@@ -40,6 +49,8 @@ public final class AnimatedManager {
 
     private static final Map<ArmorStand, AnimatedWeaponEntity> GUARDS = Collections.synchronizedMap(new WeakHashMap<>());
     private static final Map<Player, AnimatedWeaponEntity> DEPLOYED = Collections.synchronizedMap(new WeakHashMap<>());
+    /** Creatures a player's animated weapon slew, to the weapon to mend from the experience they drop. */
+    private static final Map<LivingEntity, ItemStack> MENDING = Collections.synchronizedMap(new WeakHashMap<>());
 
     private AnimatedManager() {}
 
@@ -50,7 +61,34 @@ public final class AnimatedManager {
         if (event.getEntity() instanceof ArmorStand stand && stand.level() instanceof ServerLevel level
                 && (stand.tickCount + stand.getId()) % STAND_SCAN_INTERVAL == 0) {
             standTick(stand, level);
+        } else if (event.getEntity() instanceof AbstractArrow arrow && arrow.inGround && !arrow.isRemoved()
+                && arrow.level() instanceof ServerLevel level) {
+            landed(arrow, level);
         }
+    }
+
+    // ---- Thrown weapons ----
+
+    /**
+     * A thrown or fired Animated weapon (a trident, a spear, a weapon from a Catapulting bow) that has landed stands
+     * guard over the spot, in place of lying there. Loyalty brings a weapon home instead.
+     */
+    @Nullable
+    public static AnimatedWeaponEntity landed(AbstractArrow arrow, ServerLevel level) {
+        if (!(arrow.getOwner() instanceof Player owner) || owner.level() != level || arrow.pickup == AbstractArrow.Pickup.DISALLOWED) {
+            return null;
+        }
+        ItemStack stack = arrow.getPickupItemStackOrigin();
+        if (!Animated.has(level, stack) || EnchantmentHelper.getTridentReturnToOwnerAcceleration(level, stack, arrow) > 0) {
+            return null;
+        }
+        AnimatedWeaponEntity weapon = new AnimatedWeaponEntity(ModEntities.ANIMATED_WEAPON.get(), level);
+        Vec3 from = arrow.position();
+        weapon.sentry(owner, stack.copy(), from, from.add(0, 1.0, 0), arrow instanceof CatapultedWeapon,
+                arrow.pickup == AbstractArrow.Pickup.CREATIVE_ONLY);
+        level.addFreshEntity(weapon);
+        arrow.discard();
+        return weapon;
     }
 
     /** Sends the stand's Animated weapon after the nearest hostile mob in sight, unless it is already out. */
@@ -91,7 +129,8 @@ public final class AnimatedManager {
     public static AnimatedWeaponEntity getDeployed(Player player) {
         AnimatedWeaponEntity weapon;
         if (player.level().isClientSide) {
-            double reach = SpectralConfig.animatedRecallDistance() + SpectralConfig.animatedDeployRadius() + 8;
+            double reach = Math.max(SpectralConfig.animatedRecallDistance(), SpectralConfig.animatedThrownRecallDistance())
+                    + SpectralConfig.animatedDeployRadius() + 8;
             List<AnimatedWeaponEntity> found = player.level().getEntitiesOfClass(AnimatedWeaponEntity.class,
                     player.getBoundingBox().inflate(reach), entity -> entity.isDeployed() && entity.getHome() == player);
             weapon = found.isEmpty() ? null : found.getFirst();
@@ -197,6 +236,12 @@ public final class AnimatedManager {
     @SubscribeEvent
     public static void onAttackEntity(AttackEntityEvent event) {
         Player player = event.getEntity();
+        ItemStack held = player.getMainHandItem();
+        if (!held.isEmpty() && player.getCooldowns().isOnCooldown(held.getItem()) && Animated.has(player.level(), held)) {
+            // Just recalled: it can't be swung yet.
+            event.setCanceled(true);
+            return;
+        }
         if (canUse(player) && isDeployedInHand(player, InteractionHand.MAIN_HAND)) {
             event.setCanceled(true);
             recall(player);
@@ -243,5 +288,49 @@ public final class AnimatedManager {
                 weapon.recall();
             }
         }
+    }
+
+    // ---- Mending ----
+
+    @SubscribeEvent
+    public static void onLivingDeath(LivingDeathEvent event) {
+        LivingEntity victim = event.getEntity();
+        if (!(event.getSource().getDirectEntity() instanceof AnimatedWeaponEntity weapon) || !(victim.level() instanceof ServerLevel level)) {
+            return;
+        }
+        ItemStack stack = weapon.getWeaponItem();
+        if (stack.isEmpty() || !stack.isDamaged() || !EnchantmentHelper.has(stack, EnchantmentEffectComponents.REPAIR_WITH_XP)) {
+            return;
+        }
+        if (event.getSource().getEntity() instanceof Player) {
+            // A player's kill drops experience: mend from that, as their own pick-up would.
+            MENDING.put(victim, stack);
+        } else {
+            // Nobody's kill drops none: mend from what it would have been worth.
+            mend(level, stack, victim.getExperienceReward(level, weapon));
+        }
+    }
+
+    @SubscribeEvent
+    public static void onExperienceDrop(LivingExperienceDropEvent event) {
+        ItemStack stack = MENDING.remove(event.getEntity());
+        if (stack != null && event.getEntity().level() instanceof ServerLevel level) {
+            int xp = event.getDroppedExperience();
+            event.setDroppedExperience(xp - mend(level, stack, xp));
+        }
+    }
+
+    /** Repairs {@code stack} from {@code xp} as Mending does; returns the experience used. */
+    public static int mend(ServerLevel level, ItemStack stack, int xp) {
+        if (xp <= 0 || !stack.isDamaged()) {
+            return 0;
+        }
+        int repair = EnchantmentHelper.modifyDurabilityToRepairFromXp(level, stack, xp);
+        int fixed = Math.min(repair, stack.getDamageValue());
+        if (fixed <= 0) {
+            return 0;
+        }
+        stack.setDamageValue(stack.getDamageValue() - fixed);
+        return Math.min(xp, (int) Math.ceil(fixed * (double) xp / repair));
     }
 }

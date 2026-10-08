@@ -225,6 +225,68 @@ public final class AnimatedGameTests {
         });
     }
 
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void recalledWeaponCantBeSwungAtOnce(GameTestHelper helper) {
+        FakePlayer player = player(helper, STAND_POS);
+        ItemStack sword = enchanted(helper, Items.IRON_SWORD);
+        player.getInventory().setItem(0, sword);
+        player.getInventory().selected = 0;
+        AnimatedWeaponEntity weapon = AnimatedManager.deploy(player, InteractionHand.MAIN_HAND,
+                Vec3.atCenterOf(helper.absolutePos(new BlockPos(4, 2, 4))));
+        helper.runAfterDelay(3, () -> {
+            weapon.recall();
+            helper.assertTrue(player.getCooldowns().isOnCooldown(Items.IRON_SWORD), "A recalled weapon cools down");
+            Husk husk = helper.spawnWithNoFreeWill(EntityType.HUSK, STAND_POS.east());
+            helper.assertTrue(net.neoforged.neoforge.common.CommonHooks.onPlayerAttackTarget(player, husk) == false,
+                    "It can't be swung while it cools down");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void mendingMendsFromItsKills(GameTestHelper helper) {
+        ArmorStand stand = armedStand(helper, Items.DIAMOND_SWORD);
+        ItemStack sword = stand.getItemInHand(InteractionHand.MAIN_HAND);
+        sword.enchant(holder(helper, net.minecraft.world.item.enchantment.Enchantments.MENDING), 1);
+        sword.setDamageValue(500);
+        Husk husk = helper.spawnWithNoFreeWill(EntityType.HUSK, new BlockPos(4, 2, 5));
+        husk.setHealth(1f);
+        helper.succeedWhen(() -> {
+            helper.assertTrue(husk.isDeadOrDying(), "Husk not killed yet");
+            helper.assertTrue(sword.getDamageValue() < 499, "The kill's experience should mend the sword, damage is " + sword.getDamageValue());
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 100)
+    public static void thrownTridentGuardsWhereItLands(GameTestHelper helper) {
+        for (int x = 0; x < 9; x++) {
+            for (int z = 0; z < 9; z++) {
+                helper.setBlock(new BlockPos(x, 1, z), Blocks.STONE);
+            }
+        }
+        FakePlayer player = player(helper, new BlockPos(4, 6, 4));
+        ItemStack trident = enchanted(helper, Items.TRIDENT);
+        net.minecraft.world.entity.projectile.ThrownTrident thrown =
+                new net.minecraft.world.entity.projectile.ThrownTrident(helper.getLevel(), player, trident);
+        thrown.shootFromRotation(player, 90f, 0f, 0f, 2.5f, 0f);
+        helper.getLevel().addFreshEntity(thrown);
+        helper.succeedWhen(() -> {
+            helper.assertTrue(thrown.isRemoved(), "The trident should land");
+            AnimatedWeaponEntity guard = helper.getLevel().getEntitiesOfClass(AnimatedWeaponEntity.class,
+                    new AABB(helper.absolutePos(BlockPos.ZERO)).expandTowards(9, 9, 9)).stream()
+                    .filter(AnimatedWeaponEntity::isThrown).findFirst().orElse(null);
+            helper.assertTrue(guard != null, "The trident should stand guard where it landed");
+            helper.assertTrue(guard.getWeaponItem().is(Items.TRIDENT), "It holds the trident itself");
+        });
+    }
+
+    @GameTest(template = "empty")
+    public static void exclusiveWithLoyalty(GameTestHelper helper) {
+        helper.assertFalse(Enchantment.areCompatible(holder(helper, ModEnchantments.ANIMATED),
+                holder(helper, net.minecraft.world.item.enchantment.Enchantments.LOYALTY)), "Animated and Loyalty are mutually exclusive");
+        helper.succeed();
+    }
+
     @GameTest(template = "empty")
     public static void exclusiveWithSpectralWeaponAndFarMiner(GameTestHelper helper) {
         Holder<Enchantment> animated = holder(helper, ModEnchantments.ANIMATED);

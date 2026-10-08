@@ -4,10 +4,30 @@ import com.linc.spectralenchantments.ModEnchantments;
 import com.linc.spectralenchantments.SpectralConfig;
 import com.linc.spectralenchantments.SpectralEnchantments;
 import com.linc.spectralenchantments.animated.AnimatedManager;
+import com.linc.spectralenchantments.compat.SableCompat;
 import com.linc.spectralenchantments.spectral.SpectralWeapons;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MobSpawnType;
+import net.minecraft.world.entity.animal.Bucketable;
+import net.minecraft.world.entity.projectile.FireworkRocketEntity;
+import net.minecraft.world.entity.projectile.Snowball;
+import net.minecraft.world.item.FireworkRocketItem;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.MobBucketItem;
+import net.minecraft.world.item.SolidBucketItem;
+import net.minecraft.world.item.component.CustomData;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.SnowLayerBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
+import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -37,8 +57,12 @@ import net.neoforged.neoforge.event.entity.player.ArrowLooseEvent;
  *
  * <ul>
  *   <li>Weapons and tools fly point first and stick where they land (see {@link CatapultedWeapon}).</li>
- *   <li>Things normally thrown (snowballs, eggs, ender pearls, splash potions...) are thrown, at bow speed.</li>
- *   <li>Anything else hits for damage by rarity; blocks are placed where they land (see {@link CatapultedItem}).</li>
+ *   <li>Things normally thrown (snowballs, eggs, ender pearls, splash potions, a fishing rod's lure...) are thrown,
+ *       at bow speed. Snowballs leave a layer of snow where they land.</li>
+ *   <li>Fireworks fly straight, as from a crossbow, and burst where they hit.</li>
+ *   <li>A bucket of fish (or any mob) flings the creature itself; the empty bucket stays in hand.</li>
+ *   <li>Anything else flies as an item: blocks are placed where they land, other items do what they would if used
+ *       there (see {@link CatapultedItem}, {@link ItemImpacts}). A full bucket's empty bucket stays in hand.</li>
  * </ul>
  *
  * <p>The off-hand item is offered as the bow's ammunition, so the bow draws with nothing else to shoot; on release
@@ -51,6 +75,10 @@ public final class Catapulting {
     public static final TagKey<Item> THROWABLES = TagKey.create(Registries.ITEM, SpectralEnchantments.id("catapulting/throwables"));
     /** Never fired: a shield or totem in the off hand stays put, and the bow shoots arrows as usual. */
     public static final TagKey<Item> EXCLUDED = TagKey.create(Registries.ITEM, SpectralEnchantments.id("catapulting/excluded"));
+    /** Marks projectiles a Catapulting bow threw, for what they do on landing. */
+    public static final String CATAPULTED = SpectralEnchantments.MOD_ID + ".catapulted";
+    /** A crossbow's firework speed. */
+    private static final float FIREWORK_SPEED = 1.6f;
 
     /** An arrow's speed at full draw, in blocks a tick. */
     public static final float FULL_SPEED = 3.0f;
@@ -58,7 +86,7 @@ public final class Catapulting {
     /** Projectiles that joined the level while a throwable's own use was running, to be sped up to bow speed. */
     private static final ThreadLocal<List<Projectile>> CAPTURED = new ThreadLocal<>();
 
-    public enum Kind { WEAPON, THROWABLE, BLOCK, ITEM }
+    public enum Kind { WEAPON, THROWABLE, FIREWORK, MOB_BUCKET, BLOCK, ITEM }
 
     private Catapulting() {}
 
@@ -89,7 +117,21 @@ public final class Catapulting {
         if (isWeapon(ammo)) {
             return wouldBreak(player, ammo) ? null : Kind.WEAPON;
         }
-        return ammo.getItem() instanceof BlockItem ? Kind.BLOCK : Kind.ITEM;
+        if (ammo.getItem() instanceof FireworkRocketItem) {
+            return Kind.FIREWORK;
+        }
+        if (ammo.getItem() instanceof MobBucketItem) {
+            return Kind.MOB_BUCKET;
+        }
+        return fliesAsBlock(ammo) ? Kind.BLOCK : Kind.ITEM;
+    }
+
+    /**
+     * Blocks fly as blocks: placed where they land, ploughing through creatures. Not a powder snow bucket (poured
+     * like other buckets) nor food that happens to plant (carrots, berries): those are used, and so eaten or planted.
+     */
+    public static boolean fliesAsBlock(ItemStack stack) {
+        return stack.getItem() instanceof BlockItem && !(stack.getItem() instanceof SolidBucketItem) && !stack.has(DataComponents.FOOD);
     }
 
     public static boolean isWeapon(ItemStack stack) {
@@ -162,8 +204,31 @@ public final class Catapulting {
                     return false;
                 }
             }
+            case FIREWORK -> {
+                ItemStack rocket = creative ? ammo.copyWithCount(1) : ammo.split(1);
+                FireworkRocketEntity projectile = new FireworkRocketEntity(level, rocket, player, player.getX(),
+                        player.getEyeY() - 0.15, player.getZ(), true);
+                projectile.shootFromRotation(player, player.getXRot(), player.getYRot(), 0f, power * FIREWORK_SPEED, 1f);
+                level.addFreshEntity(projectile);
+            }
+            case MOB_BUCKET -> {
+                if (!flingFromBucket(player, ammo, speed)) {
+                    return false;
+                }
+                if (!creative) {
+                    player.setItemInHand(InteractionHand.OFF_HAND, new ItemStack(Items.BUCKET));
+                }
+            }
             case BLOCK, ITEM -> {
                 ItemStack item = creative ? ammo.copyWithCount(1) : ammo.split(1);
+                if (!creative && ItemImpacts.isFilledBucket(item)) {
+                    // The bucket's contents fly; the bucket stays.
+                    giveBack(player, new ItemStack(Items.BUCKET));
+                }
+                Vec3 direction = Vec3.directionFromRotation(player.getXRot(), player.getYRot());
+                if (kind == Kind.BLOCK && SableCompat.fire(player, item, direction, power)) {
+                    break;
+                }
                 CatapultedItem projectile = new CatapultedItem(level, player, item, power);
                 projectile.shootFromRotation(player, player.getXRot(), player.getYRot(), 0f, speed, 1f);
                 level.addFreshEntity(projectile);
@@ -194,8 +259,75 @@ public final class Catapulting {
         }
         for (Projectile projectile : thrown) {
             projectile.shootFromRotation(player, player.getXRot(), player.getYRot(), 0f, speed, 1f);
+            projectile.addTag(CATAPULTED);
         }
         return !thrown.isEmpty();
+    }
+
+    /** Lets the creature out of a bucket of fish (axolotl, tadpole...) and flings it, at bow speed. */
+    private static boolean flingFromBucket(ServerPlayer player, ItemStack bucket, float speed) {
+        ServerLevel level = player.serverLevel();
+        EntityType<?> type = ((MobBucketItem) bucket.getItem()).type;
+        Entity creature = type.spawn(level, bucket, null, player.blockPosition(), MobSpawnType.BUCKET, false, false);
+        if (creature == null) {
+            return false;
+        }
+        if (creature instanceof Bucketable bucketable) {
+            bucketable.loadFromBucketTag(bucket.getOrDefault(DataComponents.BUCKET_ENTITY_DATA, CustomData.EMPTY).copyTag());
+            bucketable.setFromBucket(true);
+        }
+        Vec3 look = player.getLookAngle();
+        Vec3 from = player.getEyePosition().add(look.scale(0.6)).subtract(0, creature.getBbHeight() / 2, 0);
+        creature.moveTo(from.x, from.y, from.z, player.getYRot(), 0f);
+        creature.setDeltaMovement(look.scale(speed));
+        creature.hurtMarked = true;
+        level.playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BUCKET_EMPTY_FISH, SoundSource.PLAYERS, 1f, 1f);
+        return true;
+    }
+
+    /** Into the off hand if it's free, else the inventory, else at the player's feet. */
+    private static void giveBack(Player player, ItemStack stack) {
+        if (player.getOffhandItem().isEmpty()) {
+            player.setItemInHand(InteractionHand.OFF_HAND, stack);
+        } else if (!player.getInventory().add(stack)) {
+            player.drop(stack, false);
+        }
+    }
+
+    /** A snowball off a Catapulting bow leaves a layer of snow where it lands. */
+    @SubscribeEvent
+    public static void onProjectileImpact(ProjectileImpactEvent event) {
+        if (!(event.getProjectile() instanceof Snowball snowball) || !snowball.getTags().contains(CATAPULTED)
+                || !(event.getRayTraceResult() instanceof BlockHitResult hit) || !(snowball.level() instanceof ServerLevel level)) {
+            return;
+        }
+        Player player = snowball.getOwner() instanceof Player owner ? owner : null;
+        BlockPos pos = hit.getBlockPos();
+        if (!addSnow(level, pos, player)) {
+            addSnow(level, pos.relative(hit.getDirection()), player);
+        }
+    }
+
+    /** Adds a layer to the snow at {@code pos}, or starts one there if snow can lie on it. */
+    private static boolean addSnow(ServerLevel level, BlockPos pos, @Nullable Player player) {
+        if (player != null && !player.mayInteract(level, pos)) {
+            return false;
+        }
+        BlockState state = level.getBlockState(pos);
+        if (state.is(Blocks.SNOW)) {
+            int layers = state.getValue(SnowLayerBlock.LAYERS);
+            if (layers < SnowLayerBlock.MAX_HEIGHT) {
+                level.setBlockAndUpdate(pos, state.setValue(SnowLayerBlock.LAYERS, layers + 1));
+            }
+            return true;
+        }
+        BlockState snow = Blocks.SNOW.defaultBlockState();
+        if (state.canBeReplaced() && state.getFluidState().isEmpty() && snow.canSurvive(level, pos)) {
+            level.setBlockAndUpdate(pos, snow);
+            level.playSound(null, pos, SoundEvents.SNOW_PLACE, SoundSource.BLOCKS, 0.6f, 1f);
+            return true;
+        }
+        return false;
     }
 
     @SubscribeEvent

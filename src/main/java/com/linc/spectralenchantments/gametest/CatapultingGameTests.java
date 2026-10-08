@@ -2,9 +2,11 @@ package com.linc.spectralenchantments.gametest;
 
 import com.linc.spectralenchantments.ModEnchantments;
 import com.linc.spectralenchantments.SpectralEnchantments;
+import com.linc.spectralenchantments.animated.AnimatedWeaponEntity;
 import com.linc.spectralenchantments.catapult.CatapultedItem;
 import com.linc.spectralenchantments.catapult.CatapultedWeapon;
 import com.linc.spectralenchantments.catapult.Catapulting;
+import com.linc.spectralenchantments.compat.SableCompat;
 import com.mojang.authlib.GameProfile;
 import java.util.List;
 import java.util.UUID;
@@ -18,6 +20,10 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.tags.EnchantmentTags;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.animal.Sheep;
+import net.minecraft.world.entity.monster.Zombie;
+import net.minecraft.world.entity.projectile.FireworkRocketEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.animal.Pig;
 import net.minecraft.world.entity.projectile.Snowball;
@@ -107,14 +113,18 @@ public final class CatapultingGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 60)
-    public static void animatedWeaponFliesBackAfterImpact(GameTestHelper helper) {
+    public static void animatedWeaponGuardsWhereItLands(GameTestHelper helper) {
         floor(helper);
         ItemStack sword = new ItemStack(Items.IRON_SWORD);
         sword.enchant(holder(helper, ModEnchantments.ANIMATED), 1);
         FakePlayer player = shooter(helper, sword);
         Catapulting.fire(player, player.getMainHandItem(), 1f);
-        helper.succeedWhen(() -> helper.assertTrue(helper.getLevel().getEntitiesOfClass(CatapultedWeapon.class, area(helper))
-                .stream().anyMatch(CatapultedWeapon::isReturning), "The Animated sword should head home"));
+        helper.succeedWhen(() -> {
+            helper.assertTrue(helper.getLevel().getEntitiesOfClass(CatapultedWeapon.class, area(helper)).isEmpty(),
+                    "The fired sword should have landed");
+            helper.assertTrue(helper.getLevel().getEntitiesOfClass(AnimatedWeaponEntity.class, area(helper))
+                    .stream().anyMatch(AnimatedWeaponEntity::isThrown), "The Animated sword should stand guard where it landed");
+        });
     }
 
     @GameTest(template = "empty", timeoutTicks = 60)
@@ -141,7 +151,7 @@ public final class CatapultingGameTests {
     }
 
     @GameTest(template = "empty", timeoutTicks = 60)
-    public static void blockShattersOnAMob(GameTestHelper helper) {
+    public static void blockPloughsThroughAMob(GameTestHelper helper) {
         floor(helper);
         Pig pig = helper.spawnWithNoFreeWill(EntityType.PIG, LANDING); // unarmored, unlike husks
         FakePlayer player = shooter(helper, Items.OAK_PLANKS);
@@ -150,11 +160,156 @@ public final class CatapultingGameTests {
             float expected = 2f; // a common item: one heart
             helper.assertTrue(pig.getHealth() <= pig.getMaxHealth() - expected + 0.01f,
                     "The pig should take one heart, health is " + pig.getHealth());
-            helper.assertBlockNotPresent(Blocks.OAK_PLANKS, LANDING.above());
-            helper.assertBlockNotPresent(Blocks.OAK_PLANKS, LANDING);
-            helper.assertTrue(helper.getLevel().getEntitiesOfClass(ItemEntity.class, area(helper)).isEmpty(), "The block is destroyed, not dropped");
+            helper.assertTrue(helper.getLevel().getEntitiesOfClass(CatapultedItem.class, area(helper)).isEmpty(), "The block flew on and landed");
+            boolean placed = helper.getLevel().getBlockState(helper.absolutePos(LANDING)).is(Blocks.OAK_PLANKS);
+            boolean dropped = helper.getLevel().getEntitiesOfClass(ItemEntity.class, area(helper)).stream()
+                    .anyMatch(item -> item.getItem().is(Items.OAK_PLANKS));
+            helper.assertTrue(placed || dropped, "The block isn't destroyed: it is placed, or dropped beside the pig");
             helper.succeed();
         });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void anvilHitsLikeAFallingAnvil(GameTestHelper helper) {
+        floor(helper);
+        Pig pig = helper.spawnWithNoFreeWill(EntityType.PIG, LANDING);
+        FakePlayer player = shooter(helper, Items.ANVIL);
+        Catapulting.fire(player, player.getMainHandItem(), 1f);
+        helper.runAfterDelay(20, () -> {
+            // Fired from 4 blocks up: about as if it had fallen that far, 2 points a block.
+            helper.assertTrue(pig.getHealth() <= pig.getMaxHealth() - 4f, "The anvil should hurt like a falling one, health is " + pig.getHealth());
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void snowballLeavesSnow(GameTestHelper helper) {
+        floor(helper);
+        FakePlayer player = shooter(helper, Items.SNOWBALL);
+        Catapulting.fire(player, player.getMainHandItem(), 1f);
+        helper.succeedWhen(() -> helper.assertBlockPresent(Blocks.SNOW, LANDING));
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void fireChargeLightsAFire(GameTestHelper helper) {
+        floor(helper);
+        FakePlayer player = shooter(helper, Items.FIRE_CHARGE);
+        Catapulting.fire(player, player.getMainHandItem(), 1f);
+        helper.succeedWhen(() -> {
+            helper.assertBlockPresent(Blocks.FIRE, LANDING);
+            helper.assertTrue(helper.getLevel().getEntitiesOfClass(ItemEntity.class, area(helper)).isEmpty(), "The fire charge is used up");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void spawnEggHatches(GameTestHelper helper) {
+        floor(helper);
+        FakePlayer player = shooter(helper, Items.CHICKEN_SPAWN_EGG);
+        Catapulting.fire(player, player.getMainHandItem(), 1f);
+        helper.succeedWhen(() -> helper.assertEntityPresent(EntityType.CHICKEN));
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void waterBucketPoursAndStaysInHand(GameTestHelper helper) {
+        floor(helper);
+        FakePlayer player = shooter(helper, Items.WATER_BUCKET);
+        Catapulting.fire(player, player.getMainHandItem(), 1f);
+        helper.assertTrue(player.getOffhandItem().is(Items.BUCKET), "The empty bucket stays in the off hand");
+        helper.succeedWhen(() -> helper.assertBlockPresent(Blocks.WATER, LANDING));
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void fishBucketFlingsTheFish(GameTestHelper helper) {
+        floor(helper);
+        FakePlayer player = shooter(helper, Items.COD_BUCKET);
+        helper.assertTrue(Catapulting.fire(player, player.getMainHandItem(), 1f), "The cod should be fired");
+        helper.assertTrue(player.getOffhandItem().is(Items.BUCKET), "The empty bucket stays in the off hand");
+        helper.assertEntityPresent(EntityType.COD);
+        helper.runAfterDelay(20, () -> {
+            helper.assertBlockNotPresent(Blocks.WATER, LANDING);
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void armorIsPutOn(GameTestHelper helper) {
+        floor(helper);
+        Zombie zombie = helper.spawnWithNoFreeWill(EntityType.ZOMBIE, LANDING);
+        zombie.setItemSlot(EquipmentSlot.HEAD, ItemStack.EMPTY);
+        FakePlayer player = shooter(helper, Items.IRON_HELMET);
+        Catapulting.fire(player, player.getMainHandItem(), 1f);
+        helper.succeedWhen(() -> helper.assertTrue(zombie.getItemBySlot(EquipmentSlot.HEAD).is(Items.IRON_HELMET),
+                "The zombie should be wearing the helmet"));
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void foodIsEaten(GameTestHelper helper) {
+        floor(helper);
+        Pig pig = helper.spawnWithNoFreeWill(EntityType.PIG, LANDING);
+        FakePlayer player = shooter(helper, Items.CARROT);
+        Catapulting.fire(player, player.getMainHandItem(), 1f);
+        helper.succeedWhen(() -> {
+            helper.assertTrue(pig.isInLove(), "A pig fed a carrot falls in love");
+            helper.assertTrue(pig.getHealth() == pig.getMaxHealth(), "Food isn't thrown hard");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void shearsShear(GameTestHelper helper) {
+        floor(helper);
+        Sheep sheep = helper.spawnWithNoFreeWill(EntityType.SHEEP, LANDING);
+        FakePlayer player = shooter(helper, Items.SHEARS);
+        Catapulting.fire(player, player.getMainHandItem(), 1f);
+        helper.succeedWhen(() -> {
+            helper.assertTrue(sheep.isSheared(), "The sheep should be shorn");
+            helper.assertTrue(helper.getLevel().getEntitiesOfClass(ItemEntity.class, area(helper)).stream()
+                    .anyMatch(item -> item.getItem().is(Items.SHEARS)), "The shears drop");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void fireworksFlyStraight(GameTestHelper helper) {
+        FakePlayer player = shooter(helper, new ItemStack(Items.FIREWORK_ROCKET, 2));
+        helper.assertTrue(Catapulting.fire(player, player.getMainHandItem(), 1f), "The rocket should be fired");
+        helper.assertTrue(player.getOffhandItem().getCount() == 1, "One rocket at a time");
+        List<FireworkRocketEntity> rockets = helper.getLevel().getEntitiesOfClass(FireworkRocketEntity.class, area(helper).inflate(4));
+        helper.assertTrue(rockets.size() == 1 && rockets.getFirst().isShotAtAngle(), "It flies like a crossbow's rocket");
+        helper.succeed();
+    }
+
+    /** Compat run only: with Sable, a block can fly as a physics object and sets itself down where it lands. */
+    @GameTest(template = "empty", timeoutTicks = 200)
+    public static void physicsBlockSetsItselfDown(GameTestHelper helper) {
+        if (!ModList.get().isLoaded("sable")) {
+            helper.succeed();
+            return;
+        }
+        floor(helper);
+        SableCompat.forceEnabled = true;
+        FakePlayer player = shooter(helper, Items.OAK_PLANKS);
+        boolean fired;
+        try {
+            // A full draw straight down at a one-block floor: fast enough to pass through it between physics ticks.
+            fired = Catapulting.fire(player, player.getMainHandItem(), 1f);
+        } finally {
+            SableCompat.forceEnabled = false;
+        }
+        helper.assertTrue(fired, "The planks should be fired");
+        helper.assertTrue(helper.getLevel().getEntitiesOfClass(CatapultedItem.class, area(helper)).isEmpty(),
+                "Fired as a physics object, not a projectile");
+        helper.succeedWhen(() -> helper.assertTrue(helper.getLevel().getBlockState(helper.absolutePos(LANDING)).is(Blocks.OAK_PLANKS)
+                || helper.getLevel().getBlockState(helper.absolutePos(LANDING.above())).is(Blocks.OAK_PLANKS),
+                "The block should set itself down where it lands"));
+    }
+
+    @GameTest(template = "empty")
+    public static void sortsTheNewKinds(GameTestHelper helper) {
+        FakePlayer player = shooter(helper, Items.STONE);
+        helper.assertTrue(kind(player, Items.FIREWORK_ROCKET) == Catapulting.Kind.FIREWORK, "Rockets fly as rockets");
+        helper.assertTrue(kind(player, Items.SALMON_BUCKET) == Catapulting.Kind.MOB_BUCKET, "Fish buckets fling the fish");
+        helper.assertTrue(kind(player, Items.FISHING_ROD) == Catapulting.Kind.THROWABLE, "Fishing rods cast their lure");
+        helper.assertTrue(kind(player, Items.POWDER_SNOW_BUCKET) == Catapulting.Kind.ITEM, "Powder snow is poured, not placed as a block");
+        helper.succeed();
     }
 
     @GameTest(template = "empty", timeoutTicks = 60)
@@ -169,7 +324,7 @@ public final class CatapultingGameTests {
             helper.assertTrue(pig.getHealth() <= pig.getMaxHealth() - 4f + 0.01f,
                     "The pig should take two hearts, health is " + pig.getHealth());
             helper.assertTrue(helper.getLevel().getEntitiesOfClass(ItemEntity.class, area(helper)).stream()
-                    .anyMatch(item -> item.getItem().is(Items.DIAMOND)), "The item drops where it hit");
+                    .anyMatch(item -> item.getItem().is(Items.DIAMOND)), "An item that wasn't used pops out where it hit");
             helper.succeed();
         });
     }

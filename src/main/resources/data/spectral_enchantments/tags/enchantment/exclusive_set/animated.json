@@ -1,6 +1,7 @@
 {
   "values": [
     "spectral_enchantments:spectral_weapon",
-    "spectral_enchantments:far_miner"
+    "spectral_enchantments:far_miner",
+    "minecraft:loyalty"
   ]
 }

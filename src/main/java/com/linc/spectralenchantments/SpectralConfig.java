@@ -15,7 +15,8 @@ import net.neoforged.neoforge.common.ModConfigSpec;
  *   <li>Server ({@code serverconfig/spectral_enchantments-server.toml} in each world, synced to clients):
  *       the Spectral Weapon ranges, Broad Breaker areas, Far Miner reaches and speed, and Branch Finding's
  *       duration, search limit and cooldown, Animated's radii, deployment time and recall distance, Catapulting's
- *       durability costs, item damage and block placing, and Explosive Bolts' fire spray and explosion.</li>
+ *       durability costs, item damage and block placing, Explosive Bolts' fire spray and explosion, how curses are
+ *       revealed and how long the Cursed effect lasts, and the Curse of Possession's possessed weapons.</li>
  * </ul>
  */
 public final class SpectralConfig {
@@ -51,6 +52,8 @@ public final class SpectralConfig {
     private static final ModConfigSpec.BooleanValue CATAPULTING_TREASURE_ONLY;
     private static final ModConfigSpec.BooleanValue EXPLOSIVE_BOLTS_ENABLED;
     private static final ModConfigSpec.BooleanValue EXPLOSIVE_BOLTS_TREASURE_ONLY;
+    private static final ModConfigSpec.BooleanValue POSSESSION_CURSE_ENABLED;
+    private static final ModConfigSpec.BooleanValue POSSESSION_CURSE_TREASURE_ONLY;
 
     public static final ModConfigSpec SERVER_SPEC;
     private static final ModConfigSpec.ConfigValue<List<? extends Integer>> BREAKER_AREAS;
@@ -64,13 +67,29 @@ public final class SpectralConfig {
     private static final ModConfigSpec.IntValue ANIMATED_DEPLOY_RADIUS;
     private static final ModConfigSpec.IntValue ANIMATED_DEPLOY_SECONDS;
     private static final ModConfigSpec.IntValue ANIMATED_RECALL_DISTANCE;
+    private static final ModConfigSpec.IntValue ANIMATED_THROWN_RECALL_DISTANCE;
+    private static final ModConfigSpec.DoubleValue ANIMATED_RECALL_COOLDOWN;
     private static final ModConfigSpec.IntValue CATAPULTING_BOW_COST;
     private static final ModConfigSpec.IntValue CATAPULTING_WEAPON_COST;
     private static final ModConfigSpec.ConfigValue<List<? extends Double>> CATAPULTING_RARITY_HEARTS;
     private static final ModConfigSpec.BooleanValue CATAPULTING_PLACE_BLOCKS;
+    private static final ModConfigSpec.BooleanValue CATAPULTING_USE_ITEMS;
+    private static final ModConfigSpec.BooleanValue CATAPULTING_PHYSICS_BLOCKS;
     private static final ModConfigSpec.IntValue EXPLOSIVE_BOLTS_FIRE_RADIUS;
     private static final ModConfigSpec.IntValue EXPLOSIVE_BOLTS_BURN_SECONDS;
     private static final ModConfigSpec.IntValue EXPLOSIVE_BOLTS_GHAST_POWER;
+    private static final ModConfigSpec.IntValue EXPLOSIVE_BOLTS_DOUSE_RADIUS;
+    private static final ModConfigSpec.BooleanValue CURSES_HIDE_UNTIL_HELD;
+    private static final ModConfigSpec.IntValue CURSED_SECONDS;
+    private static final ModConfigSpec.DoubleValue POSSESSION_HEALTH_PER_DURABILITY;
+    private static final ModConfigSpec.IntValue POSSESSION_MIN_HEALTH;
+    private static final ModConfigSpec.IntValue POSSESSION_MAX_HEALTH;
+    private static final ModConfigSpec.DoubleValue POSSESSION_HEALTH_PER_HARDNESS;
+    private static final ModConfigSpec.DoubleValue POSSESSION_ITEM_HEALTH;
+    private static final ModConfigSpec.DoubleValue POSSESSION_ARMOR;
+    private static final ModConfigSpec.DoubleValue POSSESSION_DAMAGE_MULTIPLIER;
+    private static final ModConfigSpec.DoubleValue POSSESSION_DROP_CHANCE;
+    private static final ModConfigSpec.DoubleValue POSSESSION_DROP_DURABILITY;
 
     static {
         ModConfigSpec.Builder common = new ModConfigSpec.Builder();
@@ -146,6 +165,15 @@ public final class SpectralConfig {
                 .comment("If true, this enchantment is treasure-only: it can't be rolled at the enchanting table and is found",
                         "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
                 .define("explosiveBolts.treasure_only", false);
+        POSSESSION_CURSE_ENABLED = common
+                .comment("Whether Curse of Possession can be obtained and works. When false it stays registered (so cursed items",
+                        "keep it) but does nothing and no longer turns up in loot, trades or recipes.",
+                        "Takes effect after a restart or /reload.")
+                .define("possessionCurse.enabled", true);
+        POSSESSION_CURSE_TREASURE_ONLY = common
+                .comment("If true, this enchantment is treasure-only: it can't be rolled at the enchanting table and is found",
+                        "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
+                .define("possessionCurse.treasure_only", true);
         COMMON_SPEC = common.build();
 
         ModConfigSpec.Builder server = new ModConfigSpec.Builder();
@@ -196,6 +224,14 @@ public final class SpectralConfig {
                 .comment("How far the owner can stray from a deployed Animated weapon before it flies back to them, in blocks.",
                         "Always at least one more than deployRadius.")
                 .defineInRange(List.of("animated", "recallDistance"), 16, 2, 128);
+        ANIMATED_THROWN_RECALL_DISTANCE = server
+                .comment("As recallDistance, for an Animated weapon that was thrown or fired and stands guard where it landed",
+                        "(and for weapons tagged spectral_enchantments:animated/thrown_weapons, however they were left).",
+                        "Always at least one more than deployRadius.")
+                .defineInRange(List.of("animated", "thrownRecallDistance"), 32, 2, 256);
+        ANIMATED_RECALL_COOLDOWN = server
+                .comment("How long, in seconds, a recalled Animated weapon can't be swung once it is back in hand. 0 for none.")
+                .defineInRange(List.of("animated", "recallCooldownSeconds"), 2.0, 0.0, 60.0);
         CATAPULTING_BOW_COST = server
                 .comment("Durability a Catapulting bow loses for each shot it fires from the off hand. Unbreaking still applies.")
                 .defineInRange(List.of("catapulting", "bowDurabilityCost"), 2, 0, 64);
@@ -212,6 +248,14 @@ public final class SpectralConfig {
         CATAPULTING_PLACE_BLOCKS = server
                 .comment("Whether catapulted blocks are placed where they land. When false they drop as items instead.")
                 .define(List.of("catapulting", "placeBlocks"), true);
+        CATAPULTING_USE_ITEMS = server
+                .comment("Whether fired items are used where they land, as clicking with them would (fire charges light fires,",
+                        "spawn eggs hatch, buckets pour, food is eaten, armor is put on...). When false they just drop.")
+                .define(List.of("catapulting", "useItems"), true);
+        CATAPULTING_PHYSICS_BLOCKS = server
+                .comment("With Sable installed: fire blocks as physics objects that set themselves down where they land, and stay",
+                        "loose if they hit a creature on the way. Blocks tagged spectral_enchantments:catapulting/no_physics never are.")
+                .define(List.of("catapulting", "physicsBlocks"), false);
         EXPLOSIVE_BOLTS_FIRE_RADIUS = server
                 .comment("How far a blaze rod fired by Explosive Bolts sprays fire from where it lands, in blocks.")
                 .defineInRange(List.of("explosiveBolts", "blazeFireRadius"), 3, 1, 8);
@@ -221,6 +265,49 @@ public final class SpectralConfig {
         EXPLOSIVE_BOLTS_GHAST_POWER = server
                 .comment("Explosion power of the fireball a ghast tear fires (a ghast's own is 1, a creeper's 3).")
                 .defineInRange(List.of("explosiveBolts", "ghastExplosionPower"), 1, 1, 5);
+        EXPLOSIVE_BOLTS_DOUSE_RADIUS = server
+                .comment("How far from where it bursts a water bottle fired by Explosive Bolts puts out fires, in blocks.")
+                .defineInRange(List.of("explosiveBolts", "waterDouseRadius"), 4, 1, 16);
+        CURSES_HIDE_UNTIL_HELD = server
+                .comment("Whether an item's curses stay out of its tooltip until it has been in a player's inventory",
+                        "(players in creative mode always see them). Enchanted books always show theirs.")
+                .define(List.of("curses", "hideUntilHeld"), true);
+        CURSED_SECONDS = server
+                .comment("How long the Cursed effect lasts, in seconds. A player gets it the first time a cursed item lands in",
+                        "their inventory; while it lasts no cursed item they carry can be dropped or put in another container.",
+                        "0 for no effect.")
+                .defineInRange(List.of("curses", "cursedSeconds"), 60, 0, 3600);
+        POSSESSION_HEALTH_PER_DURABILITY = server
+                .comment("A possessed weapon's health for each point of durability the weapon had left (an iron sword has",
+                        "250, a diamond sword 1561), kept within minHealth and maxHealth.")
+                .defineInRange(List.of("possessionCurse", "healthPerDurability"), 0.05, 0.001, 10.0);
+        POSSESSION_MIN_HEALTH = server
+                .comment("The least health a possessed weapon (or tool) has, however worn.")
+                .defineInRange(List.of("possessionCurse", "minHealth"), 6, 1, 1024);
+        POSSESSION_MAX_HEALTH = server
+                .comment("The most health a possessed weapon or block has (40 is 20 hearts, a player's). Never less than minHealth.")
+                .defineInRange(List.of("possessionCurse", "maxHealth"), 40, 1, 1024);
+        POSSESSION_HEALTH_PER_HARDNESS = server
+                .comment("A possessed block's health for each point of its hardness (how long it takes to mine: dirt is 0.5,",
+                        "stone 1.5, planks 2, iron blocks 5, obsidian 50), kept within itemHealth and maxHealth.",
+                        "Unbreakable blocks get maxHealth.")
+                .defineInRange(List.of("possessionCurse", "healthPerHardness"), 4.0, 0.0, 1024.0);
+        POSSESSION_ITEM_HEALTH = server
+                .comment("The health of a possessed item without durability (neither a tool nor a block).")
+                .defineInRange(List.of("possessionCurse", "itemHealth"), 1.0, 0.5, 1024.0);
+        POSSESSION_ARMOR = server
+                .comment("A possessed weapon's armor points (a zombie has 2).")
+                .defineInRange(List.of("possessionCurse", "armor"), 2.0, 0.0, 30.0);
+        POSSESSION_DAMAGE_MULTIPLIER = server
+                .comment("Multiplies the damage a possessed weapon deals, which is otherwise the weapon's own (enchantments included).")
+                .defineInRange(List.of("possessionCurse", "damageMultiplier"), 1.0, 0.0, 10.0);
+        POSSESSION_DROP_CHANCE = server
+                .comment("The chance, from 0 to 1, that a slain possessed weapon drops the weapon, its curses lifted.")
+                .defineInRange(List.of("possessionCurse", "dropChance"), 0.1, 0.0, 1.0);
+        POSSESSION_DROP_DURABILITY = server
+                .comment("How much durability a weapon dropped by a slain possessed weapon has left, as a fraction of its",
+                        "maximum (at least 1 point). A weapon freed by Ars Nouveau's Dispel keeps the durability it had.")
+                .defineInRange(List.of("possessionCurse", "dropDurability"), 0.05, 0.0, 1.0);
         SERVER_SPEC = server.build();
     }
 
@@ -322,6 +409,14 @@ public final class SpectralConfig {
         return COMMON_SPEC.isLoaded() ? EXPLOSIVE_BOLTS_ENABLED.get() : EXPLOSIVE_BOLTS_ENABLED.getDefault();
     }
 
+    public static boolean possessionCurseTreasureOnly() {
+        return COMMON_SPEC.isLoaded() ? POSSESSION_CURSE_TREASURE_ONLY.get() : POSSESSION_CURSE_TREASURE_ONLY.getDefault();
+    }
+
+    public static boolean possessionCurseEnabled() {
+        return COMMON_SPEC.isLoaded() ? POSSESSION_CURSE_ENABLED.get() : POSSESSION_CURSE_ENABLED.getDefault();
+    }
+
     /** Broad Breaker's area width at {@code level} (levels above III use III's). */
     public static int broadBreakerArea(int level) {
         return forLevel(BREAKER_AREAS, DEFAULT_BREAKER_AREAS, level);
@@ -378,6 +473,17 @@ public final class SpectralConfig {
         return Math.max(distance, animatedDeployRadius() + 1);
     }
 
+    /** How far the owner may stray from a thrown Animated weapon's landing spot; never within its fighting radius. */
+    public static int animatedThrownRecallDistance() {
+        int distance = SERVER_SPEC.isLoaded() ? ANIMATED_THROWN_RECALL_DISTANCE.get() : ANIMATED_THROWN_RECALL_DISTANCE.getDefault();
+        return Math.max(distance, animatedDeployRadius() + 1);
+    }
+
+    /** How long a recalled Animated weapon can't be swung, in ticks. */
+    public static int animatedRecallCooldownTicks() {
+        return (int) Math.round(20 * (SERVER_SPEC.isLoaded() ? ANIMATED_RECALL_COOLDOWN.get() : ANIMATED_RECALL_COOLDOWN.getDefault()));
+    }
+
     /** Durability a Catapulting bow loses per shot. */
     public static int catapultingBowCost() {
         return SERVER_SPEC.isLoaded() ? CATAPULTING_BOW_COST.get() : CATAPULTING_BOW_COST.getDefault();
@@ -399,6 +505,21 @@ public final class SpectralConfig {
         return SERVER_SPEC.isLoaded() ? CATAPULTING_PLACE_BLOCKS.get() : CATAPULTING_PLACE_BLOCKS.getDefault();
     }
 
+    /** Whether fired items are used where they land. */
+    public static boolean catapultingUsesItems() {
+        return SERVER_SPEC.isLoaded() ? CATAPULTING_USE_ITEMS.get() : CATAPULTING_USE_ITEMS.getDefault();
+    }
+
+    /** Whether, with Sable, fired blocks fly as physics objects. */
+    public static boolean catapultingPhysicsBlocks() {
+        return SERVER_SPEC.isLoaded() ? CATAPULTING_PHYSICS_BLOCKS.get() : CATAPULTING_PHYSICS_BLOCKS.getDefault();
+    }
+
+    /** How far a fired water bottle puts out fires, in blocks. */
+    public static int explosiveBoltsDouseRadius() {
+        return SERVER_SPEC.isLoaded() ? EXPLOSIVE_BOLTS_DOUSE_RADIUS.get() : EXPLOSIVE_BOLTS_DOUSE_RADIUS.getDefault();
+    }
+
     /** How far a blaze rod's spray of fire reaches, in blocks. */
     public static int explosiveBoltsFireRadius() {
         return SERVER_SPEC.isLoaded() ? EXPLOSIVE_BOLTS_FIRE_RADIUS.get() : EXPLOSIVE_BOLTS_FIRE_RADIUS.getDefault();
@@ -412,6 +533,57 @@ public final class SpectralConfig {
     /** Explosion power of a ghast tear's fireball. */
     public static int explosiveBoltsGhastPower() {
         return SERVER_SPEC.isLoaded() ? EXPLOSIVE_BOLTS_GHAST_POWER.get() : EXPLOSIVE_BOLTS_GHAST_POWER.getDefault();
+    }
+
+    /** Whether curses stay out of tooltips until the item has been in a player's inventory. */
+    public static boolean cursesHideUntilHeld() {
+        return SERVER_SPEC.isLoaded() ? CURSES_HIDE_UNTIL_HELD.get() : CURSES_HIDE_UNTIL_HELD.getDefault();
+    }
+
+    /** How long the Cursed effect lasts, in ticks (0 for none). */
+    public static int cursedTicks() {
+        return 20 * (SERVER_SPEC.isLoaded() ? CURSED_SECONDS.get() : CURSED_SECONDS.getDefault());
+    }
+
+    /** A possessed weapon's health for each point of durability left. */
+    public static double possessionHealthPerDurability() {
+        return SERVER_SPEC.isLoaded() ? POSSESSION_HEALTH_PER_DURABILITY.get() : POSSESSION_HEALTH_PER_DURABILITY.getDefault();
+    }
+
+    public static int possessionMinHealth() {
+        return SERVER_SPEC.isLoaded() ? POSSESSION_MIN_HEALTH.get() : POSSESSION_MIN_HEALTH.getDefault();
+    }
+
+    /** Never below {@link #possessionMinHealth()}. */
+    public static int possessionMaxHealth() {
+        int max = SERVER_SPEC.isLoaded() ? POSSESSION_MAX_HEALTH.get() : POSSESSION_MAX_HEALTH.getDefault();
+        return Math.max(max, possessionMinHealth());
+    }
+
+    /** A possessed block's health for each point of hardness. */
+    public static double possessionHealthPerHardness() {
+        return SERVER_SPEC.isLoaded() ? POSSESSION_HEALTH_PER_HARDNESS.get() : POSSESSION_HEALTH_PER_HARDNESS.getDefault();
+    }
+
+    public static float possessionItemHealth() {
+        return (SERVER_SPEC.isLoaded() ? POSSESSION_ITEM_HEALTH.get() : POSSESSION_ITEM_HEALTH.getDefault()).floatValue();
+    }
+
+    public static double possessionArmor() {
+        return SERVER_SPEC.isLoaded() ? POSSESSION_ARMOR.get() : POSSESSION_ARMOR.getDefault();
+    }
+
+    public static float possessionDamageMultiplier() {
+        return (SERVER_SPEC.isLoaded() ? POSSESSION_DAMAGE_MULTIPLIER.get() : POSSESSION_DAMAGE_MULTIPLIER.getDefault()).floatValue();
+    }
+
+    public static double possessionDropChance() {
+        return SERVER_SPEC.isLoaded() ? POSSESSION_DROP_CHANCE.get() : POSSESSION_DROP_CHANCE.getDefault();
+    }
+
+    /** Durability left on a slain possessed weapon's drop, as a fraction of the maximum. */
+    public static double possessionDropDurability() {
+        return SERVER_SPEC.isLoaded() ? POSSESSION_DROP_DURABILITY.get() : POSSESSION_DROP_DURABILITY.getDefault();
     }
 
     /** Defaults until the world's server config is loaded (or synced, on a client). */

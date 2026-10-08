@@ -1,0 +1,36 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "ars_nouveau"
+    },
+    {
+      "type": "spectral_enchantments:enchantment_enabled",
+      "enchantment": "possession_curse"
+    }
+  ],
+  "type": "ars_nouveau:enchantment",
+  "enchantment": "spectral_enchantments:possession_curse",
+  "level": 1,
+  "pedestalItems": [
+    {
+      "item": "ars_nouveau:conjuration_essence"
+    },
+    {
+      "item": "ars_nouveau:conjuration_essence"
+    },
+    {
+      "item": "ars_nouveau:abjuration_essence"
+    },
+    {
+      "item": "minecraft:wither_rose"
+    },
+    {
+      "item": "minecraft:soul_lantern"
+    },
+    {
+      "item": "minecraft:echo_shard"
+    }
+  ],
+  "sourceCost": 2000
+}

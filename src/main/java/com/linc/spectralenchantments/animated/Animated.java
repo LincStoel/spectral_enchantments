@@ -2,11 +2,13 @@ package com.linc.spectralenchantments.animated;
 
 import com.linc.spectralenchantments.ModEnchantments;
 import com.linc.spectralenchantments.SpectralConfig;
+import com.linc.spectralenchantments.SpectralEnchantments;
 import com.linc.spectralenchantments.spectral.SpectralWeapons;
 import java.util.Comparator;
 import javax.annotation.Nullable;
 import net.minecraft.core.Rotations;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.tags.TagKey;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
@@ -17,6 +19,7 @@ import net.minecraft.world.entity.OwnableEntity;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.ClipContext;
@@ -31,7 +34,15 @@ import org.joml.Vector3f;
 
 /** Shared (client + server) rules for the Animated enchantment. */
 public final class Animated {
+    /** Weapons that are thrown (tridents, spears): they wander off as far as a thrown weapon may, however they were left. */
+    public static final TagKey<Item> THROWN_WEAPONS = TagKey.create(Registries.ITEM, SpectralEnchantments.id("animated/thrown_weapons"));
+
     private Animated() {}
+
+    /** How far the owner may stray before the weapon flies back: further for thrown weapons. */
+    public static int recallDistance(ItemStack stack, boolean thrown) {
+        return thrown || stack.is(THROWN_WEAPONS) ? SpectralConfig.animatedThrownRecallDistance() : SpectralConfig.animatedRecallDistance();
+    }
 
     public static boolean has(Level level, ItemStack stack) {
         if (stack == null || stack.isEmpty() || !SpectralConfig.animatedEnabled() || SpectralWeapons.isExcluded(stack)) {

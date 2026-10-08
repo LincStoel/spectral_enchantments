@@ -2,7 +2,10 @@ package com.linc.spectralenchantments.gametest;
 
 import com.linc.spectralenchantments.ModEnchantments;
 import com.linc.spectralenchantments.SpectralEnchantments;
+import com.linc.spectralenchantments.ModEntities;
 import com.linc.spectralenchantments.explosive.BlazeBolt;
+import com.linc.spectralenchantments.explosive.ExplosiveBolts;
+import com.linc.spectralenchantments.explosive.WaterBolt;
 import com.mojang.authlib.GameProfile;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
@@ -19,14 +22,19 @@ import net.minecraft.world.entity.monster.Husk;
 import net.minecraft.world.entity.projectile.AbstractArrow;
 import net.minecraft.world.entity.projectile.LargeFireball;
 import net.minecraft.world.entity.projectile.SmallFireball;
+import net.minecraft.world.entity.projectile.ThrownPotion;
 import net.minecraft.world.item.CrossbowItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import net.minecraft.world.item.alchemy.PotionContents;
+import net.minecraft.world.item.alchemy.Potions;
 import net.minecraft.world.item.component.ChargedProjectiles;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.CampfireBlock;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
@@ -117,6 +125,65 @@ public final class ExplosiveBoltsGameTests {
     }
 
     /** Shooting the loaded ammunition (upwards, out of the way) makes {@code expected} and no arrow. */
+    @GameTest(template = "empty")
+    public static void sortsWaterAndPotions(GameTestHelper helper) {
+        helper.assertTrue(ExplosiveBolts.behavior(PotionContents.createItemStack(Items.POTION, Potions.WATER)) == ExplosiveBolts.Behavior.WATER_BURST,
+                "Water bottles burst");
+        helper.assertTrue(ExplosiveBolts.behavior(PotionContents.createItemStack(Items.POTION, Potions.SWIFTNESS)) == null,
+                "Drinkable potions aren't ammunition");
+        helper.assertTrue(ExplosiveBolts.behavior(PotionContents.createItemStack(Items.SPLASH_POTION, Potions.HARMING)) == ExplosiveBolts.Behavior.THROWN_POTION,
+                "Splash potions are thrown");
+        helper.assertTrue(ExplosiveBolts.behavior(PotionContents.createItemStack(Items.LINGERING_POTION, Potions.HARMING)) == ExplosiveBolts.Behavior.THROWN_POTION,
+                "Lingering potions are thrown");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void splashPotionIsThrown(GameTestHelper helper) {
+        FakePlayer player = shooter(helper, -90f);
+        ItemStack crossbow = player.getMainHandItem();
+        crossbow.set(DataComponents.CHARGED_PROJECTILES, ChargedProjectiles.of(PotionContents.createItemStack(Items.SPLASH_POTION, Potions.HEALING)));
+        ((CrossbowItem) crossbow.getItem()).performShooting(player.level(), player, InteractionHand.MAIN_HAND, crossbow, 3.15f, 0f, null);
+        AABB around = new AABB(player.blockPosition()).inflate(8);
+        helper.assertTrue(helper.getLevel().getEntitiesOfClass(ThrownPotion.class, around).size() == 1, "Expected a thrown potion");
+        helper.assertTrue(helper.getLevel().getEntitiesOfClass(AbstractArrow.class, around).isEmpty(), "No arrow should be fired");
+        helper.getLevel().getEntitiesOfClass(ThrownPotion.class, around).forEach(Entity::discard);
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void waterBottleFiresAWaterBolt(GameTestHelper helper) {
+        FakePlayer player = shooter(helper, -90f);
+        ItemStack crossbow = player.getMainHandItem();
+        crossbow.set(DataComponents.CHARGED_PROJECTILES, ChargedProjectiles.of(PotionContents.createItemStack(Items.POTION, Potions.WATER)));
+        ((CrossbowItem) crossbow.getItem()).performShooting(player.level(), player, InteractionHand.MAIN_HAND, crossbow, 3.15f, 0f, null);
+        AABB around = new AABB(player.blockPosition()).inflate(8);
+        helper.assertTrue(helper.getLevel().getEntitiesOfClass(WaterBolt.class, around).size() == 1, "Expected a water bolt");
+        helper.getLevel().getEntitiesOfClass(WaterBolt.class, around).forEach(Entity::discard);
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void waterBoltDousesFires(GameTestHelper helper) {
+        for (int x = 0; x < 9; x++) {
+            for (int z = 0; z < 9; z++) {
+                helper.setBlock(new BlockPos(x, 1, z), Blocks.NETHERRACK);
+            }
+        }
+        helper.setBlock(new BlockPos(4, 2, 4), Blocks.FIRE);
+        helper.setBlock(new BlockPos(7, 2, 4), Blocks.FIRE); // 3 blocks away
+        helper.setBlock(new BlockPos(4, 2, 1), Blocks.CAMPFIRE);
+        Husk husk = helper.spawnWithNoFreeWill(EntityType.HUSK, new BlockPos(2, 2, 4));
+        husk.igniteForSeconds(10f);
+        WaterBolt bolt = ModEntities.WATER_BOLT.get().create(helper.getLevel());
+        bolt.burst(Vec3.atCenterOf(helper.absolutePos(new BlockPos(4, 2, 4))));
+        helper.assertBlockNotPresent(Blocks.FIRE, new BlockPos(4, 2, 4));
+        helper.assertBlockNotPresent(Blocks.FIRE, new BlockPos(7, 2, 4));
+        helper.assertFalse(helper.getBlockState(new BlockPos(4, 2, 1)).getValue(CampfireBlock.LIT), "The campfire is put out");
+        helper.assertFalse(husk.isOnFire(), "Burning creatures are put out");
+        helper.succeed();
+    }
+
     private static void firesAs(GameTestHelper helper, Item ammo, Class<? extends Entity> expected) {
         FakePlayer player = shooter(helper, -90f);
         shoot(player, ammo);

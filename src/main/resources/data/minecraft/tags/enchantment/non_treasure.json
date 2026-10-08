@@ -8,6 +8,7 @@
     "#spectral_enchantments:non_treasure/branch_finding",
     "#spectral_enchantments:non_treasure/animated",
     "#spectral_enchantments:non_treasure/explosive_bolts",
-    "#spectral_enchantments:non_treasure/catapulting"
+    "#spectral_enchantments:non_treasure/catapulting",
+    "#spectral_enchantments:non_treasure/possession_curse"
   ]
 }

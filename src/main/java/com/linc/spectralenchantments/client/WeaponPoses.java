@@ -1,7 +1,7 @@
 package com.linc.spectralenchantments.client;
 
 import com.linc.spectralenchantments.spectral.AttackStyle;
-import com.linc.spectralenchantments.spectral.FlyingWeaponEntity;
+import com.linc.spectralenchantments.spectral.SwingingWeapon;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
 import net.minecraft.util.Mth;
@@ -28,12 +28,12 @@ final class WeaponPoses {
     private WeaponPoses() {}
 
     /** The weapon's swing pose if it is mid-swing, else {@code idle}. Swings start and end at {@code ready}. */
-    static Pose current(FlyingWeaponEntity weapon, float partialTick, Pose idle, Pose ready) {
+    static Pose current(SwingingWeapon weapon, float partialTick, Pose idle, Pose ready) {
         float progress = weapon.attackProgress(partialTick);
         if (progress < 0f) {
             return idle;
         }
-        return attackPose(weapon.attackStyle, weapon.attackMirrored ? -1f : 1f, weapon.attackUpswing, progress, ready);
+        return attackPose(weapon.attackStyle(), weapon.attackMirrored() ? -1f : 1f, weapon.attackUpswing(), progress, ready);
     }
 
     /** From the weapon's position (the middle of the item), swings it about its grip into {@code pose}. */

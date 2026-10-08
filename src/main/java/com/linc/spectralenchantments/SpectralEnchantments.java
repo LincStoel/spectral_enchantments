@@ -2,6 +2,10 @@ package com.linc.spectralenchantments;
 
 import com.linc.spectralenchantments.animated.AnimatedManager;
 import com.linc.spectralenchantments.catapult.Catapulting;
+import com.linc.spectralenchantments.compat.ArsNouveauCompat;
+import com.linc.spectralenchantments.compat.SableCompat;
+import com.linc.spectralenchantments.curse.Curses;
+import com.linc.spectralenchantments.curse.PossessedWeaponEntity;
 import com.linc.spectralenchantments.explosive.ExplosiveBolts;
 import com.linc.spectralenchantments.network.ModNetwork;
 import com.linc.spectralenchantments.spectral.SpectralWeaponManager;
@@ -14,6 +18,7 @@ import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.conditions.ICondition;
+import net.neoforged.neoforge.event.entity.EntityAttributeCreationEvent;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import net.neoforged.neoforge.registries.NeoForgeRegistries;
 
@@ -34,6 +39,10 @@ public final class SpectralEnchantments {
         container.registerConfig(ModConfig.Type.SERVER, SpectralConfig.SERVER_SPEC);
         CONDITION_CODECS.register(modBus);
         ModEntities.ENTITY_TYPES.register(modBus);
+        ModComponents.COMPONENTS.register(modBus);
+        ModEffects.EFFECTS.register(modBus);
+        modBus.addListener((EntityAttributeCreationEvent event) ->
+                event.put(ModEntities.POSSESSED_WEAPON.get(), PossessedWeaponEntity.createAttributes().build()));
         modBus.addListener(ModNetwork::register);
         NeoForge.EVENT_BUS.register(CommonEvents.class);
         NeoForge.EVENT_BUS.register(FarMiner.class);
@@ -44,6 +53,9 @@ public final class SpectralEnchantments {
         NeoForge.EVENT_BUS.register(AnimatedManager.class);
         NeoForge.EVENT_BUS.register(Catapulting.class);
         NeoForge.EVENT_BUS.register(ExplosiveBolts.class);
+        NeoForge.EVENT_BUS.register(Curses.class);
+        ArsNouveauCompat.register();
+        SableCompat.register();
     }
 
     public static ResourceLocation id(String path) {

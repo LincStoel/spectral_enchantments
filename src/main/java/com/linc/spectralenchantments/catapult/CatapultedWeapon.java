@@ -1,7 +1,6 @@
 package com.linc.spectralenchantments.catapult;
 
 import com.linc.spectralenchantments.ModEntities;
-import com.linc.spectralenchantments.animated.Animated;
 import com.linc.spectralenchantments.projectile.ItemArrow;
 import com.linc.spectralenchantments.spectral.WeaponProfile;
 import javax.annotation.Nullable;
@@ -24,7 +23,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 
@@ -32,19 +30,15 @@ import net.minecraft.world.phys.Vec3;
  * A weapon (or tool) a Catapulting bow fired from the off hand. Flies like an arrow, point first, and sticks where it
  * lands to be picked up again. Hits for the weapon's own attack damage (with its enchantments), scaled by the draw.
  *
- * <p>Comes back like a thrown trident when it carries Loyalty, and straight after its first impact when it carries
- * Animated. Mirrors ThrownTrident; never despawns while it can still be picked up.
+ * <p>Comes back like a thrown trident when it carries Loyalty; one carrying Animated stands guard where it lands (see
+ * AnimatedManager#landed). Mirrors ThrownTrident; never despawns while it can still be picked up.
  */
 public class CatapultedWeapon extends ItemArrow {
     private static final EntityDataAccessor<Byte> RETURN_SPEED = SynchedEntityData.defineId(CatapultedWeapon.class, EntityDataSerializers.BYTE);
-    /** Animated weapons come home at least this fast (Loyalty's level is its speed). */
-    private static final int ANIMATED_RETURN_SPEED = 2;
 
     /** How far the bow was drawn (0-1): a full draw hits for the weapon's full damage. */
     private float power = 1f;
     private boolean dealtDamage;
-    /** Whether it heads home as soon as it hits something (Animated), rather than after resting a moment (Loyalty). */
-    private boolean returnsOnImpact;
     private int returnTicks;
 
     public CatapultedWeapon(EntityType<? extends CatapultedWeapon> type, Level level) {
@@ -68,9 +62,7 @@ public class CatapultedWeapon extends ItemArrow {
         if (level() instanceof ServerLevel level) {
             ItemStack stack = getPickupItemStackOrigin();
             int loyalty = EnchantmentHelper.getTridentReturnToOwnerAcceleration(level, stack, this);
-            returnsOnImpact = Animated.has(level, stack);
-            int speed = returnsOnImpact ? Math.max(loyalty, ANIMATED_RETURN_SPEED) : loyalty;
-            entityData.set(RETURN_SPEED, (byte) Mth.clamp(speed, 0, 127));
+            entityData.set(RETURN_SPEED, (byte) Mth.clamp(loyalty, 0, 127));
         }
     }
 
@@ -84,7 +76,7 @@ public class CatapultedWeapon extends ItemArrow {
 
     @Override
     public void tick() {
-        if (inGroundTime > 4 || (returnsOnImpact && inGround)) {
+        if (inGroundTime > 4) {
             dealtDamage = true;
         }
         Entity owner = getOwner();
@@ -160,14 +152,6 @@ public class CatapultedWeapon extends ItemArrow {
         playSound(SoundEvents.TRIDENT_HIT, 1f, 1f);
     }
 
-    @Override
-    protected void onHitBlock(BlockHitResult result) {
-        super.onHitBlock(result);
-        if (returnsOnImpact) {
-            dealtDamage = true;
-        }
-    }
-
     /** The weapon itself, so its enchantments (not the bow's) act on what it hits. */
     @Override
     public ItemStack getWeaponItem() {
@@ -175,12 +159,12 @@ public class CatapultedWeapon extends ItemArrow {
     }
 
     /**
-     * The owner catches a returning weapon back in their off hand, ready to fire again, when it's free; otherwise
-     * it goes into their inventory.
+     * The owner takes the weapon back into their off hand, ready to fire again, when it's free (whether it came back
+     * to them or they picked it up); otherwise it goes into their inventory.
      */
     @Override
     protected boolean tryPickup(Player player) {
-        if (isNoPhysics() && ownedBy(player) && pickup == Pickup.ALLOWED && player.getOffhandItem().isEmpty()) {
+        if (ownedBy(player) && pickup == Pickup.ALLOWED && player.getOffhandItem().isEmpty()) {
             player.setItemInHand(InteractionHand.OFF_HAND, getPickupItem());
             return true;
         }

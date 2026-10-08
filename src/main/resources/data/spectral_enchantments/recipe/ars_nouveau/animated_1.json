@@ -9,9 +9,8 @@
       "enchantment": "animated"
     }
   ],
-  "type": "ars_nouveau:enchantment",
-  "enchantment": "spectral_enchantments:animated",
-  "level": 1,
+  "type": "ars_nouveau:enchanting_apparatus",
+  "keepNbtOfReagent": false,
   "pedestalItems": [
     {
       "item": "ars_nouveau:source_gem_block"
@@ -32,5 +31,57 @@
       "item": "minecraft:echo_shard"
     }
   ],
+  "reagent": {
+    "type": "neoforge:compound",
+    "children": [
+      {
+        "type": "neoforge:components",
+        "items": "minecraft:enchanted_book",
+        "strict": false,
+        "components": {
+          "minecraft:stored_enchantments": {
+            "levels": {
+              "minecraft:loyalty": 1
+            }
+          }
+        }
+      },
+      {
+        "type": "neoforge:components",
+        "items": "minecraft:enchanted_book",
+        "strict": false,
+        "components": {
+          "minecraft:stored_enchantments": {
+            "levels": {
+              "minecraft:loyalty": 2
+            }
+          }
+        }
+      },
+      {
+        "type": "neoforge:components",
+        "items": "minecraft:enchanted_book",
+        "strict": false,
+        "components": {
+          "minecraft:stored_enchantments": {
+            "levels": {
+              "minecraft:loyalty": 3
+            }
+          }
+        }
+      }
+    ]
+  },
+  "result": {
+    "count": 1,
+    "id": "minecraft:enchanted_book",
+    "components": {
+      "minecraft:stored_enchantments": {
+        "levels": {
+          "spectral_enchantments:animated": 1
+        }
+      }
+    }
+  },
   "sourceCost": 3000
 }
