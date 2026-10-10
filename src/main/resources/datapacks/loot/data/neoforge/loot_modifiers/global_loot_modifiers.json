@@ -1,0 +1,12 @@
+{
+  "replace": false,
+  "entries": [
+    "spectral_enchantments:nether_possession",
+    "spectral_enchantments:nether_haunting",
+    "spectral_enchantments:dungeon_haunting",
+    "spectral_enchantments:stronghold_possession",
+    "spectral_enchantments:mineshaft_broad_breaker",
+    "spectral_enchantments:piglin_possession",
+    "spectral_enchantments:piglin_haunting"
+  ]
+}

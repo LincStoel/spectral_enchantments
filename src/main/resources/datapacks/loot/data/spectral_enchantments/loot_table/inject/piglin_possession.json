@@ -1,0 +1,37 @@
+{
+  "type": "minecraft:barter",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:golden_sword",
+          "weight": 2,
+          "functions": [
+            {
+              "function": "minecraft:set_enchantments",
+              "enchantments": {
+                "spectral_enchantments:possession_curse": 1
+              },
+              "add": true
+            }
+          ]
+        },
+        {
+          "type": "minecraft:item",
+          "name": "minecraft:book",
+          "weight": 1,
+          "functions": [
+            {
+              "function": "minecraft:set_enchantments",
+              "enchantments": {
+                "spectral_enchantments:possession_curse": 1
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

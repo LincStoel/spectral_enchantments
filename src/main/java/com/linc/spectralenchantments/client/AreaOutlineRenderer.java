@@ -24,7 +24,7 @@ final class AreaOutlineRenderer {
             return;
         }
         BlockHitResult hit = event.getTarget();
-        List<BlockPos> extras = AreaHelper.getExtraBlocks(mc.player, hit.getBlockPos(), hit.getDirection());
+        List<BlockPos> extras = AreaHelper.area(mc.player, hit.getBlockPos(), hit.getDirection()).extras;
         if (extras.isEmpty()) {
             return;
         }

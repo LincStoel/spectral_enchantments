@@ -7,7 +7,7 @@ the scenarios, taking screenshots and probing client state. Results:
   run-compat/bot{1,2}/harness-*.txt   client events and probes
 
     python tools/compat/run_compat.py              # everything
-    python tools/compat/run_compat.py vanilla ars  # chosen scenarios (vanilla, iris, ars, sneak, spectral)
+    python tools/compat/run_compat.py vanilla ars  # chosen scenarios (vanilla, iris, ars, sneak, spectral, doppelganger, haunting)
 """
 import pathlib
 import re
@@ -282,12 +282,12 @@ def scenario_debug(s):
     s.c("bbh trace false", quiet=True)
 
 
-def give_spectral(s, bot, slot, item, level=3, rune=None):
-    """Puts a Spectral Weapon item in a slot (e.g. hotbar.0, weapon.offhand), optionally etched with a Quark rune."""
+def give_spectral(s, bot, slot, item, rune=None):
+    """Puts an Animated item in a slot (e.g. hotbar.0, weapon.offhand), optionally etched with a Quark rune."""
     item_id = item if ":" in item else f"minecraft:{item}"
     etched = f',quark:rune_color="{rune}"' if rune else ""
     s.c(f'item replace entity {bot} {slot} with {item_id}'
-        f'[minecraft:enchantments={{levels:{{"spectral_enchantments:spectral_weapon":{level}}}}}{etched}]', quiet=True)
+        f'[minecraft:enchantments={{levels:{{"spectral_enchantments:animated":1}}}}{etched}]', quiet=True)
 
 
 def mob_health(s, tag):
@@ -297,8 +297,8 @@ def mob_health(s, tag):
 
 
 def ghosts(probe_line):
-    """The spectralWeapons=[...] part of a probe line."""
-    m = re.search(r"spectralWeapons=\[(.*?)\]", probe_line)
+    """The companions=[...] part of a probe line."""
+    m = re.search(r"companions=\[(.*?)\]", probe_line)
     return m.group(1) if m else ""
 
 
@@ -328,14 +328,14 @@ def summon_target(s, mob, x, z, tag="sw_target"):
 
 
 def owner_hits(s, tag):
-    """Bot1 'hits' the tagged mob (a token player attack), which is what the spectral weapon locks on to."""
+    """Bot1 'hits' the tagged mob (a token player attack), which is what an Animated companion locks on to."""
     s.c(f"damage @e[tag={tag},limit=1] 0.01 minecraft:player_attack by Bot1", quiet=True)
 
 
-def watch_attack(s, prefix, item, mob="zombie", level=3, rune=None):
+def watch_attack(s, prefix, item, mob="zombie", rune=None):
     """Gives Bot1 `item` in hotbar slot 0, summons a still mob in range, has Bot1 hit it, screenshots the swings."""
     spectral_stage(s)
-    give_spectral(s, "Bot1", "hotbar.0", item, level, rune)
+    give_spectral(s, "Bot1", "hotbar.0", item, rune)
     time.sleep(2)
     summon_target(s, mob, 0.5, 11.5)
     time.sleep(0.5)
@@ -357,7 +357,7 @@ def watch_attack(s, prefix, item, mob="zombie", level=3, rune=None):
 
 
 def scenario_spectral(s):
-    """Spectral Weapon: rest pose, lock-on, attacks with each weapon style, sneak, off hand, anvil items, Quark runes."""
+    """Animated in the hotbar: rest pose, lock-on, attacks with each weapon style, sneak, off hand, anvil items, Quark runes."""
     s.c("difficulty easy", quiet=True)  # peaceful deletes the target mobs on spawn
     for bot in BOT_DIRS:
         s.do(bot, "iris", "off")
@@ -369,9 +369,8 @@ def scenario_spectral(s):
     shot(s, "Bot2", "spectral-rest")
     shot(s, "Bot1", "spectral-rest-firstperson")
     p1, p2 = spectral_probe(s, "spectral-rest")
-    check("Bot1:minecraft:diamond_sword slot=0 left" in p1, "[spectral] Bot1 sees its own sword ghost resting on the left")
-    check("Bot1:minecraft:diamond_sword slot=0 left" in p2, "[spectral] Bot2 sees Bot1's sword ghost (remote)")
-    check("tint=FFFFFF" in ghosts(p1), "[spectral] an unetched weapon is spectral white")
+    check("Bot1:minecraft:diamond_sword slot=0 left" in p1, "[spectral] Bot1 sees its own sword resting on the left")
+    check("Bot1:minecraft:diamond_sword slot=0 left" in p2, "[spectral] Bot2 sees Bot1's sword (remote)")
 
     # The hotbar icon of the manifested item gets a ghostly overlay (and in the inventory screen).
     s.do("Bot1", "hud", "on")
@@ -418,7 +417,7 @@ def scenario_spectral(s):
     s.do("Bot1", "slot", "0")
     time.sleep(1.5)
     p1, _ = spectral_probe(s, "spectral-mainhand")
-    check("diamond_sword" not in ghosts(p1), "[spectral] no ghost while the sword is in the main hand")
+    check("diamond_sword" not in ghosts(p1), "[spectral] nothing fights beside Bot1 while the sword is in the main hand")
     s.do("Bot1", "slot", "4")
     time.sleep(1.5)
 
@@ -446,7 +445,7 @@ def scenario_spectral(s):
     time.sleep(2)
     shot(s, "Bot2", "spectral-sneak")
     p1, _ = spectral_probe(s, "spectral-sneak")
-    check("golden_sword" not in ghosts(p1), "[spectral] sneaking dismisses the ghost")
+    check("golden_sword" not in ghosts(p1), "[spectral] sneaking sends the weapon home")
     s.do("Bot1", "sneak", "off")
     time.sleep(1)
 
@@ -477,11 +476,11 @@ def scenario_spectral(s):
         before, after, styles = watch_attack(s, f"spectral-{prefix}", item)
         # None afterwards: the zombie was killed.
         check(before is not None and (after is None or after < before),
-              f"[spectral:{prefix}] the ghost hurt the zombie ({before} -> {'dead' if after is None else after})")
+              f"[spectral:{prefix}] the weapon hurt the zombie ({before} -> {'dead' if after is None else after})")
         if style:
             check(style in styles, f"[spectral:{prefix}] swings include {style} ({sorted(styles)})")
 
-    # Anvil-only items: weak bonks; a block shows as a ghostly block.
+    # Anvil-only items: weak bonks; a block shows as a turning block.
     before, after, _ = watch_attack(s, "spectral-dirt", "dirt", mob="spider")
     # One bonk every 4 s: between samples (~2 s apart) health drops by at most half a heart.
     drops = [a - b for a, b in zip(s.healths, s.healths[1:]) if a is not None and b is not None and a - b > 1e-3]
@@ -489,15 +488,16 @@ def scenario_spectral(s):
           f"[spectral:dirt] a dirt block bonks for half a heart at a time (health {s.healths})")
     shot(s, "Bot2", "spectral-dirt-rest")
 
-    # Quark's Color Runes: the ghost takes the colour of the etched glint.
-    for rune, tint in (("red", "DB3452"), ("cyan", "3FF3FF")):
+    # Quark's Color Runes: the real item flies, so it glints in the rune's colour on its own (see the screenshots);
+    # the slot overlay takes the colour too.
+    for rune in ("red", "cyan"):
         spectral_stage(s)
         give_spectral(s, "Bot1", "hotbar.0", "diamond_sword", rune=rune)
         time.sleep(2)
         shot(s, "Bot2", f"spectral-rune-{rune}")
         p1, p2 = spectral_probe(s, f"spectral-rune-{rune}")
-        check(f"tint={tint}" in ghosts(p1) and f"tint={tint}" in ghosts(p2),
-              f"[spectral:quark] a {rune}-etched weapon's ghost is {rune} on both clients")
+        check("diamond_sword" in ghosts(p1) and "diamond_sword" in ghosts(p2),
+              f"[spectral:quark] a {rune}-etched weapon fights beside its owner on both clients")
     s.do("Bot1", "hud", "on")
     time.sleep(0.5)
     shot(s, "Bot1", "spectral-rune-hotbar-overlay")
@@ -520,8 +520,167 @@ def scenario_spectral(s):
     time.sleep(5)
 
 
+def ghost_count(s):
+    out = s.c("execute if entity @e[type=spectral_enchantments:doppelganger]", quiet=True)
+    m = re.search(r"count: (\d+)", out, re.I)
+    return int(m.group(1)) if m else 0
+
+
+def zombie_at_double(s):
+    return "passed" in s.c("execute as @e[tag=dg_zombie] at @s if entity "
+                           "@e[type=spectral_enchantments:doppelganger,distance=..3]", quiet=True).lower()
+
+
+def scenario_doppelganger(s):
+    """Doppelganger: sneaking leaves a ghostly double that draws a zombie off its owner and plays Quark emotes."""
+    s.c("fill -12 0 -4 12 10 24 air", quiet=True)
+    s.c("kill @e[tag=dg_any]", quiet=True)
+    s.c("clear Bot1", quiet=True)
+    s.c("gamemode survival Bot1", quiet=True)
+    s.c("difficulty easy", quiet=True)
+    s.c("effect give Bot1 minecraft:resistance infinite 4 true", quiet=True)
+    s.c('item replace entity Bot1 armor.chest with minecraft:iron_chestplate'
+        '[minecraft:enchantments={levels:{"spectral_enchantments:doppelganger":1}},quark:rune_color="cyan"]', quiet=True)
+    s.c("tp Bot1 0.5 0 7.5 0 0", quiet=True)
+    s.c("tp Bot2 -2.5 1 12.5 -149 12", quiet=True)  # in front of the double, looking back at it
+    time.sleep(2)
+    s.do("Bot1", "sneak", "on")
+    time.sleep(1.5)
+    check(ghost_count(s) == 1, "[doppelganger] sneaking leaves one double behind")
+    shot(s, "Bot2", "doppelganger-appear")
+    # Bot1 crawls away, still sneaking; a zombie that wants Bot1 should go for the double instead.
+    s.c("tp Bot1 0.5 0 -2.5 180 0", quiet=True)
+    s.c('summon minecraft:zombie 7.5 0 14.5 {PersistenceRequired:1b,Tags:["dg_zombie","dg_any"],'
+        'ArmorItems:[{},{},{},{id:"minecraft:leather_helmet",count:1}]}', quiet=True)
+    s.c("damage @e[tag=dg_zombie,limit=1] 0.01 minecraft:player_attack by Bot1", quiet=True)
+    reached = False
+    for i in range(15):
+        time.sleep(2)
+        if i % 2 == 0:
+            shot(s, "Bot2", f"doppelganger-idle{i}")
+        reached = reached or zombie_at_double(s)
+    check(reached, "[doppelganger] the zombie goes for the double, not its owner")
+    check(ghost_count(s) == 1, "[doppelganger] the double survives the zombie")
+
+    for bot in BOT_DIRS:
+        s.do(bot, "iris", "on")
+    time.sleep(25)
+    shot(s, "Bot2", "doppelganger-iris")
+    s.c("time set midnight", quiet=True)
+    time.sleep(2)
+    shot(s, "Bot2", "doppelganger-iris-night")
+    s.c("time set noon", quiet=True)
+    for bot in BOT_DIRS:
+        s.do(bot, "iris", "off")
+
+    s.c("kill @e[tag=dg_any]", quiet=True)
+    time.sleep(1)
+    s.do("Bot1", "sneak", "off")
+    time.sleep(0.15)
+    shot(s, "Bot2", "doppelganger-puff")
+    check(ghost_count(s) == 0, "[doppelganger] standing up takes the double away")
+    shot(s, "Bot2", "doppelganger-gone")
+    log("  Quark emotes played: " + str(re.findall(r"Doppelganger double plays (\S+)",
+        (RESULTS / "bot2-gradle.log").read_text(encoding="utf-8", errors="replace"))))
+    s.c("kill @e[tag=dg_any]", quiet=True)
+    s.c("clear Bot1", quiet=True)
+    s.c("effect clear Bot1", quiet=True)
+    s.c("difficulty peaceful", quiet=True)
+    time.sleep(3)
+
+HAUNTED = '{"minecraft:enchantments":{levels:{"spectral_enchantments:haunting_curse":1}}}'
+
+
+def haunting_ghosts(s):
+    out = s.c("execute if entity @e[type=spectral_enchantments:haunting_ghost]", quiet=True)
+    m = re.search(r"count: (\d+)", out, re.I)
+    return int(m.group(1)) if m else 0
+
+
+def has_strength(s, tag):
+    return "strength" in s.c(f"data get entity @e[tag={tag},limit=1] active_effects", quiet=True).lower()
+
+
+def scenario_haunting(s):
+    """Curse of Haunting: a zombie in a haunted helmet has a ghost beside it, strengthening its friends; a haunted
+    player's ghost comes out when the armor goes on, and again at once when a zombie strikes them."""
+    s.c("fill -12 0 -4 12 10 24 air", quiet=True)
+    s.c("kill @e[tag=hg_any]", quiet=True)
+    s.c("clear Bot1", quiet=True)
+    s.c("gamemode survival Bot1", quiet=True)
+    s.c("difficulty easy", quiet=True)
+    # Resistance IV, not V: the zombie's blow has to land (for 1 damage in 5) to call the ghost.
+    s.c("effect give Bot1 minecraft:resistance infinite 3 true", quiet=True)
+    s.c("tp Bot1 0.5 0 7.5 0 0", quiet=True)
+    s.c("tp Bot2 4.5 1 10.5 40 12", quiet=True)
+    time.sleep(2)
+    s.c('summon minecraft:zombie 0.5 0 14.5 {NoAI:1b,PersistenceRequired:1b,Rotation:[180f,0f],Tags:["hg_haunted","hg_any"],'
+        f'ArmorItems:[{{}},{{}},{{}},{{id:"minecraft:iron_helmet",count:1,components:{HAUNTED}}}]}}', quiet=True)
+    s.c('summon minecraft:zombie 3.5 0 14.5 {NoAI:1b,PersistenceRequired:1b,Rotation:[180f,0f],Tags:["hg_friend","hg_any"],'
+        'ArmorItems:[{},{},{},{id:"minecraft:leather_helmet",count:1}]}', quiet=True)
+    time.sleep(3)
+    check(haunting_ghosts(s) == 1, "[haunting] the haunted zombie has its ghost out")
+    check(has_strength(s, "hg_haunted") and has_strength(s, "hg_friend"), "[haunting] the ghost strengthens the zombies")
+    shot(s, "Bot2", "haunting-zombie")
+
+    s.c('item replace entity Bot1 armor.chest with minecraft:iron_chestplate'
+        '[minecraft:enchantments={levels:{"spectral_enchantments:haunting_curse":1}},quark:rune_color="cyan"]', quiet=True)
+    time.sleep(2)
+    check(haunting_ghosts(s) == 2, "[haunting] putting the armor on brings out the player's ghost at once")
+    # It drifts over to the monster nearest the player (the haunted zombie) to lend it Strength.
+    time.sleep(4)
+    shot(s, "Bot2", "haunting-both")
+    shot(s, "Bot1", "haunting-bot1-view")
+    # The player's ghost raises its arms like an evoker every 8-20 s, for 2 s: a frame every ~1.5 s catches it.
+    for i in range(16):
+        shot(s, "Bot2", f"haunting-cast{i:02d}")
+
+    for bot in BOT_DIRS:
+        s.do(bot, "iris", "on")
+    time.sleep(25)
+    shot(s, "Bot2", "haunting-iris")
+    s.c("time set midnight", quiet=True)
+    time.sleep(2)
+    shot(s, "Bot2", "haunting-iris-night")
+    s.c("time set noon", quiet=True)
+    for bot in BOT_DIRS:
+        s.do(bot, "iris", "off")
+    time.sleep(5)
+
+    s.c("execute as @e[tag=hg_haunted] at @s run damage @e[type=spectral_enchantments:haunting_ghost,sort=nearest,limit=1] "
+        "1 minecraft:player_attack by Bot1", quiet=True)
+    time.sleep(0.2)
+    shot(s, "Bot2", "haunting-zombie-ghost-struck")
+    check(haunting_ghosts(s) == 2, "[haunting] a struck zombie's ghost fades out but stays")
+
+    s.c("kill @e[tag=hg_any]", quiet=True)
+    time.sleep(2)
+    check(haunting_ghosts(s) == 1, "[haunting] the zombie's ghost goes with it")
+
+    # Send the player's ghost away (it's the only one left), so a zombie's blow has to call it back.
+    s.c("kill @e[type=spectral_enchantments:haunting_ghost]", quiet=True)
+    time.sleep(1)
+    n = haunting_ghosts(s)
+    check(n == 0, f"[haunting] the player's ghost went ({n} ghosts left)")
+    s.c('summon minecraft:zombie -3.5 0 12.5 {NoAI:1b,PersistenceRequired:1b,Rotation:[180f,0f],Tags:["hg_attacker","hg_any"],'
+        'ArmorItems:[{},{},{},{id:"minecraft:leather_helmet",count:1}]}', quiet=True)
+    s.c("damage Bot1 5 minecraft:mob_attack by @e[tag=hg_attacker,limit=1]", quiet=True)
+    time.sleep(2)
+    check(haunting_ghosts(s) == 1, "[haunting] a zombie's blow brings out the player's ghost")
+    shot(s, "Bot2", "haunting-provoked")
+
+    s.c("kill @e[tag=hg_any]", quiet=True)
+    s.c("clear Bot1", quiet=True)
+    s.c("effect clear Bot1", quiet=True)
+    s.c("difficulty peaceful", quiet=True)
+    time.sleep(3)
+    check(haunting_ghosts(s) == 0, "[haunting] taking the armor off ends the haunting")
+
+
+
 SCENARIOS = {"debug": scenario_debug, "vanilla": scenario_vanilla, "iris": scenario_iris, "ars": scenario_ars,
-             "sneak": scenario_sneak, "spectral": scenario_spectral}
+             "sneak": scenario_sneak, "spectral": scenario_spectral,
+             "doppelganger": scenario_doppelganger, "haunting": scenario_haunting}
 
 
 def main():

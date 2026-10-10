@@ -1,0 +1,7 @@
+{
+  "replace": false,
+  "values": [
+    "#spectral_enchantments:non_treasure/animated",
+    "#spectral_enchantments:treasure_only/animated"
+  ]
+}

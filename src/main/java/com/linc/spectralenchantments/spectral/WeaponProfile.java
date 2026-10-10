@@ -1,5 +1,6 @@
 package com.linc.spectralenchantments.spectral;
 
+import com.linc.spectralenchantments.animated.Animated;
 import com.linc.spectralenchantments.compat.BetterCombatCompat;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -14,7 +15,7 @@ import net.minecraft.world.item.Items;
 import net.neoforged.neoforge.common.Tags;
 
 /**
- * How a weapon fighting on its own (spectral or animated) fights: its damage, its attack interval and the
+ * How a weapon fighting on its own (an Animated weapon) fights: its damage, its attack interval and the
  * sequence of swings it cycles through.
  *
  * @param full false for items that are not melee weapons (only reachable through the anvil):
@@ -34,18 +35,13 @@ public record WeaponProfile(boolean full, float baseDamage, int intervalTicks, L
     private static final double BASE_ATTACK_DAMAGE = 1.0;
     private static final double BASE_ATTACK_SPEED = 4.0;
 
-    /** A spectral weapon's profile: it swings at half the wielder's speed. */
-    public static WeaponProfile of(ItemStack stack) {
-        return of(stack, 2.0);
-    }
-
     /**
      * @param intervalScale the attack interval as a multiple of the wielder's (vanilla's full-charge cooldown of
      *                      20 / attackSpeed ticks): 1 swings at normal speed, 2 at half
      */
     public static WeaponProfile of(ItemStack stack, double intervalScale) {
         List<AttackStep> combat = BetterCombatCompat.attacks(stack);
-        if (combat == null && !SpectralWeapons.isMeleeWeapon(stack)) {
+        if (combat == null && !Animated.isMeleeWeapon(stack)) {
             return new WeaponProfile(false, WEAK_DAMAGE, WEAK_INTERVAL_TICKS, List.of(AttackStep.of(AttackStyle.BONK)));
         }
         float damage = (float) mainHandValue(stack, Attributes.ATTACK_DAMAGE, BASE_ATTACK_DAMAGE);

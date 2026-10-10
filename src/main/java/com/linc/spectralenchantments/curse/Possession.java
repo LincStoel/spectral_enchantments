@@ -7,19 +7,15 @@ import com.linc.spectralenchantments.SpectralConfig;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.Holder;
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
-import net.minecraft.world.Difficulty;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 
@@ -32,12 +28,7 @@ public final class Possession {
     private Possession() {}
 
     public static boolean has(Level level, ItemStack stack) {
-        return SpectralConfig.possessionCurseEnabled() && level(level, stack, ModEnchantments.POSSESSION_CURSE) > 0;
-    }
-
-    /** Whether revealing this item's curses sets it loose. Never in peaceful, where it couldn't fight. */
-    static boolean canPossess(ServerPlayer player, ItemStack stack) {
-        return has(player.level(), stack) && player.level().getDifficulty() != Difficulty.PEACEFUL;
+        return ModEnchantments.has(level, ModEnchantments.POSSESSION_CURSE, stack);
     }
 
     /** Takes the item out of the player's {@code slot} and sets it on them. */
@@ -111,21 +102,10 @@ public final class Possession {
         if (freed.isDamageableItem()) {
             freed.setDamageValue(damage);
         }
-        if (SpectralConfig.animatedEnabled()) {
-            level.registryAccess().registry(Registries.ENCHANTMENT)
-                    .flatMap(registry -> registry.getHolder(ModEnchantments.ANIMATED))
-                    .ifPresent(animated -> freed.enchant(animated, 1));
+        Holder<Enchantment> animated = ModEnchantments.holder(level.registryAccess(), ModEnchantments.ANIMATED);
+        if (animated != null && !animated.is(ModEnchantments.DISABLED)) {
+            freed.enchant(animated, 1);
         }
         return freed;
-    }
-
-    private static int level(Level level, ItemStack stack, ResourceKey<Enchantment> key) {
-        if (stack == null || stack.isEmpty()) {
-            return 0;
-        }
-        return level.registryAccess().registry(Registries.ENCHANTMENT)
-                .flatMap(registry -> registry.getHolder(key))
-                .map(holder -> EnchantmentHelper.getItemEnchantmentLevel((Holder<Enchantment>) holder, stack))
-                .orElse(0);
     }
 }

@@ -79,23 +79,34 @@ public final class ItemImpacts {
     static void hitBlock(CatapultedItem projectile, ServerLevel level, BlockHitResult hit, @Nullable Player player) {
         ItemStack stack = projectile.getItem().copy();
         BlockPos pos = hit.getBlockPos();
+        if (!uses(stack)) {
+            projectile.drop(stack);
+            return;
+        }
         if (stack.getItem() instanceof EndCrystalItem) {
-            if (!use(level, player, stack, hit)) {
-                explodeCrystal(level, projectile.position());
+            if (!use(level, player, stack, hit) && !explodeCrystal(projectile, level, player, pos)) {
+                projectile.drop(stack);
             }
             return;
         }
         if (isFilledBucket(stack)) {
-            pour(level, player, pos, hit, stack);
+            if (!pour(level, player, pos, hit, stack)) {
+                projectile.drop(stack);
+            }
             return;
         }
-        if (!stack.is(NO_USE) && SpectralConfig.catapultingUsesItems() && use(level, player, stack, hit)) {
+        if (use(level, player, stack, hit)) {
             if (!stack.isEmpty()) {
                 projectile.drop(stack);
             }
             return;
         }
         projectile.drop(stack);
+    }
+
+    /** Whether fired items are used where they land at all, and this one in particular. */
+    private static boolean uses(ItemStack stack) {
+        return SpectralConfig.catapultingUsesItems() && !stack.is(NO_USE);
     }
 
     /** Uses {@code stack} (which it may use up) on the block that was hit, as the player clicking it would. */
@@ -107,33 +118,48 @@ public final class ItemImpacts {
         return result.consumesAction();
     }
 
-    /** Pours a bucket out at {@code pos} (or against the face hit, if {@code pos} can't hold it). */
-    private static void pour(ServerLevel level, @Nullable Player player, BlockPos pos, @Nullable BlockHitResult hit, ItemStack stack) {
+    /**
+     * Pours a bucket out at {@code pos} (or against the face hit, if {@code pos} can't hold it), as the shooter would.
+     * Returns false, having changed nothing, when there is no shooter (gone, or in another dimension) to answer for it.
+     */
+    private static boolean pour(ServerLevel level, @Nullable Player player, BlockPos pos, @Nullable BlockHitResult hit, ItemStack stack) {
         if (stack.getItem() instanceof MilkBucketItem) {
             level.sendParticles(ParticleTypes.SPLASH, pos.getX() + 0.5, pos.getY() + 1, pos.getZ() + 0.5, 12, 0.3, 0.1, 0.3, 0.1);
-            return;
+            return true;
+        }
+        if (player == null) {
+            return false;
         }
         if (stack.getItem() instanceof SolidBucketItem) {
             if (hit != null && use(level, player, stack, hit)) {
-                return;
+                return true;
             }
             BlockPos at = hit != null ? pos.relative(hit.getDirection()) : pos;
-            if (level.getBlockState(at).canBeReplaced() && (player == null || player.mayInteract(level, at))) {
+            if (level.getBlockState(at).canBeReplaced() && player.mayInteract(level, at)) {
                 level.setBlockAndUpdate(at, ((SolidBucketItem) stack.getItem()).getBlock().defaultBlockState());
+                return true;
             }
-            return;
+            return false;
         }
         BucketItem bucket = (BucketItem) stack.getItem();
         BlockState state = level.getBlockState(pos);
         BlockPos at = state.getBlock() instanceof LiquidBlockContainer container
                 && container.canPlaceLiquid(player, level, pos, state, bucket.content) || hit == null ? pos : pos.relative(hit.getDirection());
-        if (player == null || player.mayInteract(level, at)) {
-            bucket.emptyContents(player, level, at, hit, stack);
-        }
+        return player.mayInteract(level, at) && bucket.emptyContents(player, level, at, hit, stack);
     }
 
-    private static void explodeCrystal(ServerLevel level, Vec3 at) {
-        level.explode(null, at.x, at.y, at.z, 6.0f, Level.ExplosionInteraction.BLOCK);
+    /**
+     * An end crystal that can't be set down goes off where it landed, as the shooter's explosion (so protection mods
+     * and kill credit see who fired it). Nothing happens, and false is returned, when that's switched off, there is no
+     * shooter, or the shooter couldn't build there.
+     */
+    private static boolean explodeCrystal(CatapultedItem projectile, ServerLevel level, @Nullable Player player, BlockPos at) {
+        if (!SpectralConfig.catapultingExplodesCrystals() || player == null || !player.mayInteract(level, at)) {
+            return false;
+        }
+        Vec3 center = projectile.position();
+        level.explode(projectile, center.x, center.y, center.z, 6.0f, Level.ExplosionInteraction.BLOCK);
+        return true;
     }
 
     // ---- Creatures ----
@@ -142,20 +168,22 @@ public final class ItemImpacts {
         ItemStack stack = projectile.getItem().copy();
         Item item = stack.getItem();
         LivingEntity living = target instanceof LivingEntity l ? l : null;
+        boolean uses = uses(stack);
 
-        if (item instanceof EndCrystalItem) {
-            explodeCrystal(level, projectile.position());
-            return;
-        }
-        if (isFilledBucket(stack)) {
-            if (item instanceof MilkBucketItem && living != null) {
-                stack.finishUsingItem(level, living);
-            } else {
-                pour(level, player, target.blockPosition(), null, stack);
+        if (uses && item instanceof EndCrystalItem) {
+            if (!explodeCrystal(projectile, level, player, target.blockPosition())) {
+                projectile.drop(stack);
             }
             return;
         }
-        boolean uses = !stack.is(NO_USE) && SpectralConfig.catapultingUsesItems();
+        if (uses && isFilledBucket(stack)) {
+            if (item instanceof MilkBucketItem && living != null) {
+                stack.finishUsingItem(level, living);
+            } else if (!pour(level, player, target.blockPosition(), null, stack)) {
+                projectile.drop(stack);
+            }
+            return;
+        }
         if (uses && living != null) {
             if (equip(living, stack) || feed(projectile, level, living, stack, player)) {
                 return;
@@ -166,7 +194,7 @@ public final class ItemImpacts {
                 return;
             }
         }
-        if (uses && item instanceof SpawnEggItem egg) {
+        if (uses && item instanceof SpawnEggItem egg && player != null && player.mayInteract(level, target.blockPosition())) {
             egg.getType(stack).spawn(level, stack, player, target.blockPosition(), MobSpawnType.SPAWN_EGG, true, false);
             return;
         }
@@ -237,11 +265,11 @@ public final class ItemImpacts {
         return true;
     }
 
-    /** Sets a creature alight, and the ground at its feet too where fire can go. */
+    /** Sets a creature alight, and the ground at its feet too where fire can go and the shooter could light it. */
     private static void ignite(ServerLevel level, Entity target, @Nullable Player player) {
         target.igniteForSeconds(8f);
         BlockPos feet = target.blockPosition();
-        if (BaseFireBlock.canBePlacedAt(level, feet, Direction.UP) && (player == null || player.mayInteract(level, feet))) {
+        if (player != null && BaseFireBlock.canBePlacedAt(level, feet, Direction.UP) && player.mayInteract(level, feet)) {
             level.setBlockAndUpdate(feet, BaseFireBlock.getState(level, feet));
         }
         level.playSound(null, target.getX(), target.getY(), target.getZ(), SoundEvents.FIRECHARGE_USE, SoundSource.NEUTRAL, 1f, 1f);

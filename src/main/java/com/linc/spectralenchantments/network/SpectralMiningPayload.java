@@ -1,6 +1,8 @@
 package com.linc.spectralenchantments.network;
 
+import com.linc.spectralenchantments.SpectralConfig;
 import com.linc.spectralenchantments.SpectralEnchantments;
+import io.netty.handler.codec.DecoderException;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.BlockPos;
@@ -43,8 +45,12 @@ public record SpectralMiningPayload(
         if (active) {
             buf.writeBlockPos(origin);
             buf.writeEnum(face);
-            buf.writeVarInt(extras.size());
-            extras.forEach(buf::writeBlockPos);
+            // Never more than the reader takes, or the rest of the packet would be misread.
+            int count = Math.min(extras.size(), SpectralConfig.MAX_BREAKER_EXTRAS);
+            buf.writeVarInt(count);
+            for (int i = 0; i < count; i++) {
+                buf.writeBlockPos(extras.get(i));
+            }
             ItemStack.OPTIONAL_STREAM_CODEC.encode(buf, tool);
             buf.writeFloat(progressPerTick);
         }
@@ -59,7 +65,10 @@ public record SpectralMiningPayload(
         }
         BlockPos origin = buf.readBlockPos();
         Direction face = buf.readEnum(Direction.class);
-        int count = Math.min(buf.readVarInt(), 64);
+        int count = buf.readVarInt();
+        if (count < 0 || count > SpectralConfig.MAX_BREAKER_EXTRAS) {
+            throw new DecoderException("Too many Broad Breaker blocks: " + count);
+        }
         List<BlockPos> extras = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {
             extras.add(buf.readBlockPos());

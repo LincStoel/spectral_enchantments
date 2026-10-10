@@ -1,6 +1,7 @@
 {
   "replace": false,
   "values": [
-    "spectral_enchantments:possession_curse"
+    "spectral_enchantments:possession_curse",
+    "spectral_enchantments:haunting_curse"
   ]
 }

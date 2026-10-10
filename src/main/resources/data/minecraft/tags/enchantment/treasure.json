@@ -2,13 +2,14 @@
   "replace": false,
   "values": [
     "#spectral_enchantments:treasure_only/broad_breaker",
-    "#spectral_enchantments:treasure_only/spectral_weapon",
     "#spectral_enchantments:treasure_only/far_miner",
     "#spectral_enchantments:treasure_only/gather",
     "#spectral_enchantments:treasure_only/branch_finding",
     "#spectral_enchantments:treasure_only/animated",
     "#spectral_enchantments:treasure_only/explosive_bolts",
     "#spectral_enchantments:treasure_only/catapulting",
-    "#spectral_enchantments:treasure_only/possession_curse"
+    "#spectral_enchantments:treasure_only/possession_curse",
+    "#spectral_enchantments:treasure_only/doppelganger",
+    "#spectral_enchantments:treasure_only/haunting_curse"
   ]
 }

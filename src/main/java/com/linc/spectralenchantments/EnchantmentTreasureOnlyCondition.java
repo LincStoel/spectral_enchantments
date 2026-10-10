@@ -19,14 +19,15 @@ public record EnchantmentTreasureOnlyCondition(EnchantmentEnabledCondition.Which
     public boolean test(IContext context) {
         return switch (enchantment) {
             case BROAD_BREAKER -> SpectralConfig.broadBreakerEnabled() && SpectralConfig.broadBreakerTreasureOnly();
-            case SPECTRAL_WEAPON -> SpectralConfig.spectralWeaponEnabled() && SpectralConfig.spectralWeaponTreasureOnly();
             case FAR_MINER -> SpectralConfig.farMinerEnabled() && SpectralConfig.farMinerTreasureOnly();
             case GATHER -> SpectralConfig.gatherEnabled() && SpectralConfig.gatherTreasureOnly();
             case BRANCH_FINDING -> SpectralConfig.branchFindingEnabled() && SpectralConfig.branchFindingTreasureOnly();
             case ANIMATED -> SpectralConfig.animatedEnabled() && SpectralConfig.animatedTreasureOnly();
             case CATAPULTING -> SpectralConfig.catapultingEnabled() && SpectralConfig.catapultingTreasureOnly();
             case EXPLOSIVE_BOLTS -> SpectralConfig.explosiveBoltsEnabled() && SpectralConfig.explosiveBoltsTreasureOnly();
+            case DOPPELGANGER -> SpectralConfig.doppelgangerEnabled() && SpectralConfig.doppelgangerTreasureOnly();
             case POSSESSION_CURSE -> SpectralConfig.possessionCurseEnabled() && SpectralConfig.possessionCurseTreasureOnly();
+            case HAUNTING_CURSE -> SpectralConfig.hauntingCurseEnabled() && SpectralConfig.hauntingCurseTreasureOnly();
         };
     }
 

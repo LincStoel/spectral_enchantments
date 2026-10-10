@@ -29,7 +29,7 @@ versionRange="${minecraft_version_range}"
 ordering="NONE"
 side="BOTH"
 
-# Optional: Spectral Weapon reads Better Combat's attack combos (which also describe Simply Swords' weapons).
+# Optional: Animated reads Better Combat's attack combos (which also describe Simply Swords' weapons).
 [[dependencies."${mod_id}"]]
 modId="bettercombat"
 type="optional"
@@ -44,3 +44,15 @@ type="optional"
 versionRange="*"
 ordering="NONE"
 side="BOTH"
+
+# Optional: Configured gives the configs an in-game screen (Mods > Spectral Enchantments > Config).
+[[dependencies."${mod_id}"]]
+modId="configured"
+type="optional"
+versionRange="*"
+ordering="NONE"
+side="CLIENT"
+
+# Configured: the background behind this mod's config screens.
+[modproperties."${mod_id}"]
+configuredBackground="minecraft:textures/block/amethyst_block.png"

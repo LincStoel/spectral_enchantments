@@ -18,7 +18,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * A weapon that flies about and fights on its own (a Spectral Weapon's ghost, an Animated weapon). Never saved,
+ * A weapon that flies about and fights on its own (an Animated weapon). Never saved,
  * never touched or hurt. The server flies it and times its swings; the client interpolates its position and
  * plays the swing it is told about (see the client's WeaponPoses).
  */

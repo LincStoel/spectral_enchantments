@@ -14,7 +14,8 @@ import net.minecraft.world.item.enchantment.Enchantment;
 import net.neoforged.neoforge.event.entity.player.ItemTooltipEvent;
 
 /**
- * Keeps an item's curses out of its tooltip until it has been in a player's inventory (see {@link Curses}), along
+ * Keeps an item's curses out of its tooltip until it has been in a player's inventory, or worn if it's armor (see
+ * {@link Curses}), along
  * with any description line a mod such as Enchantment Descriptions adds beneath them. Creative players see all.
  */
 final class CurseTooltips {

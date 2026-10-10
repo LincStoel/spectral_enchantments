@@ -13,21 +13,24 @@ import net.neoforged.neoforge.common.ModConfigSpec;
  *   <li>Common ({@code config/spectral_enchantments-common.toml}): switching each enchantment off. Read when
  *       data packs load, so a change takes effect after a restart (or {@code /reload}).</li>
  *   <li>Server ({@code serverconfig/spectral_enchantments-server.toml} in each world, synced to clients):
- *       the Spectral Weapon ranges, Broad Breaker areas, Far Miner reaches and speed, and Branch Finding's
- *       duration, search limit and cooldown, Animated's radii, deployment time and recall distance, Catapulting's
- *       durability costs, item damage and block placing, Explosive Bolts' fire spray and explosion, how curses are
- *       revealed and how long the Cursed effect lasts, and the Curse of Possession's possessed weapons.</li>
+ *       Broad Breaker areas, Far Miner reaches and speed, and Branch Finding's
+ *       duration, search limit and cooldown, Animated's follow range, radii, deployment time and recall distance, Catapulting's
+ *       durability costs, item damage and block placing, Explosive Bolts' fire spray and explosion, Doppelganger's
+ *       lure radius, range, cooldown and emote timing, how curses are revealed and how long the Cursed effect lasts, the Curse of Possession's possessed weapons, and the
+ *       Curse of Haunting's ghost.</li>
  * </ul>
  */
 public final class SpectralConfig {
     public static final int LEVELS = 3;
-    private static final List<Integer> DEFAULT_WEAPON_RANGES = List.of(6, 12, 16);
     private static final List<Integer> DEFAULT_BREAKER_AREAS = List.of(3, 5, 7);
     private static final List<Integer> DEFAULT_FAR_MINER_RANGES = List.of(8, 12, 16);
     /** Far Miner reaches start past normal block reach (4.5). */
     private static final int MIN_FAR_MINER_RANGE = 5;
-    private static final int MAX_WEAPON_RANGE = 64;
-    private static final int MAX_BREAKER_AREA = 33;
+    private static final int MAX_COMPANION_RANGE = 64;
+    /** Broad Breaker's widest area. Bounds the per-tick area work, the ghost tools drawn and the area packet. */
+    public static final int MAX_BREAKER_AREA = 15;
+    /** The most extra blocks one Broad Breaker area can hold (a full square, less the mined block). */
+    public static final int MAX_BREAKER_EXTRAS = MAX_BREAKER_AREA * MAX_BREAKER_AREA - 1;
     private static final int MAX_FAR_MINER_RANGE = 64;
     /** Keeps the outline packet well under the 1 MiB payload limit even for pathological leaf/log mixes. */
     private static final int MAX_BRANCH_FINDING_LEAVES = 16384;
@@ -38,8 +41,6 @@ public final class SpectralConfig {
     public static final ModConfigSpec COMMON_SPEC;
     private static final ModConfigSpec.BooleanValue BROAD_BREAKER_ENABLED;
     private static final ModConfigSpec.BooleanValue BROAD_BREAKER_TREASURE_ONLY;
-    private static final ModConfigSpec.BooleanValue SPECTRAL_WEAPON_ENABLED;
-    private static final ModConfigSpec.BooleanValue SPECTRAL_WEAPON_TREASURE_ONLY;
     private static final ModConfigSpec.BooleanValue FAR_MINER_ENABLED;
     private static final ModConfigSpec.BooleanValue FAR_MINER_TREASURE_ONLY;
     private static final ModConfigSpec.BooleanValue GATHER_ENABLED;
@@ -52,17 +53,21 @@ public final class SpectralConfig {
     private static final ModConfigSpec.BooleanValue CATAPULTING_TREASURE_ONLY;
     private static final ModConfigSpec.BooleanValue EXPLOSIVE_BOLTS_ENABLED;
     private static final ModConfigSpec.BooleanValue EXPLOSIVE_BOLTS_TREASURE_ONLY;
+    private static final ModConfigSpec.BooleanValue DOPPELGANGER_ENABLED;
+    private static final ModConfigSpec.BooleanValue DOPPELGANGER_TREASURE_ONLY;
     private static final ModConfigSpec.BooleanValue POSSESSION_CURSE_ENABLED;
     private static final ModConfigSpec.BooleanValue POSSESSION_CURSE_TREASURE_ONLY;
+    private static final ModConfigSpec.BooleanValue HAUNTING_CURSE_ENABLED;
+    private static final ModConfigSpec.BooleanValue HAUNTING_CURSE_TREASURE_ONLY;
 
     public static final ModConfigSpec SERVER_SPEC;
     private static final ModConfigSpec.ConfigValue<List<? extends Integer>> BREAKER_AREAS;
-    private static final ModConfigSpec.ConfigValue<List<? extends Integer>> WEAPON_RANGES;
     private static final ModConfigSpec.ConfigValue<List<? extends Integer>> FAR_MINER_RANGES;
     private static final ModConfigSpec.DoubleValue FAR_MINER_SPEED;
     private static final ModConfigSpec.IntValue BRANCH_FINDING_DURATION;
     private static final ModConfigSpec.IntValue BRANCH_FINDING_MAX_LEAVES;
     private static final ModConfigSpec.IntValue BRANCH_FINDING_COOLDOWN;
+    private static final ModConfigSpec.IntValue ANIMATED_COMPANION_RANGE;
     private static final ModConfigSpec.IntValue ANIMATED_STAND_RADIUS;
     private static final ModConfigSpec.IntValue ANIMATED_DEPLOY_RADIUS;
     private static final ModConfigSpec.IntValue ANIMATED_DEPLOY_SECONDS;
@@ -75,10 +80,16 @@ public final class SpectralConfig {
     private static final ModConfigSpec.BooleanValue CATAPULTING_PLACE_BLOCKS;
     private static final ModConfigSpec.BooleanValue CATAPULTING_USE_ITEMS;
     private static final ModConfigSpec.BooleanValue CATAPULTING_PHYSICS_BLOCKS;
+    private static final ModConfigSpec.BooleanValue CATAPULTING_EXPLODE_CRYSTALS;
     private static final ModConfigSpec.IntValue EXPLOSIVE_BOLTS_FIRE_RADIUS;
     private static final ModConfigSpec.IntValue EXPLOSIVE_BOLTS_BURN_SECONDS;
     private static final ModConfigSpec.IntValue EXPLOSIVE_BOLTS_GHAST_POWER;
     private static final ModConfigSpec.IntValue EXPLOSIVE_BOLTS_DOUSE_RADIUS;
+    private static final ModConfigSpec.IntValue DOPPELGANGER_LURE_RADIUS;
+    private static final ModConfigSpec.IntValue DOPPELGANGER_MAX_DISTANCE;
+    private static final ModConfigSpec.IntValue DOPPELGANGER_COOLDOWN;
+    private static final ModConfigSpec.IntValue DOPPELGANGER_EMOTE_MIN;
+    private static final ModConfigSpec.IntValue DOPPELGANGER_EMOTE_MAX;
     private static final ModConfigSpec.BooleanValue CURSES_HIDE_UNTIL_HELD;
     private static final ModConfigSpec.IntValue CURSED_SECONDS;
     private static final ModConfigSpec.DoubleValue POSSESSION_HEALTH_PER_DURABILITY;
@@ -90,6 +101,20 @@ public final class SpectralConfig {
     private static final ModConfigSpec.DoubleValue POSSESSION_DAMAGE_MULTIPLIER;
     private static final ModConfigSpec.DoubleValue POSSESSION_DROP_CHANCE;
     private static final ModConfigSpec.DoubleValue POSSESSION_DROP_DURABILITY;
+    private static final ModConfigSpec.IntValue HAUNTING_APPEAR_MIN;
+    private static final ModConfigSpec.IntValue HAUNTING_APPEAR_MAX;
+    private static final ModConfigSpec.IntValue HAUNTING_STARE_SECONDS;
+    private static final ModConfigSpec.IntValue HAUNTING_STARE_MIN_DISTANCE;
+    private static final ModConfigSpec.IntValue HAUNTING_STARE_MAX_DISTANCE;
+    private static final ModConfigSpec.IntValue HAUNTING_APPROACH_DISTANCE;
+    private static final ModConfigSpec.IntValue HAUNTING_MONSTER_RADIUS;
+    private static final ModConfigSpec.IntValue HAUNTING_STRENGTH_RADIUS;
+    private static final ModConfigSpec.IntValue HAUNTING_STRENGTH_LEVEL;
+    private static final ModConfigSpec.IntValue HAUNTING_BANISH_MIN;
+    private static final ModConfigSpec.IntValue HAUNTING_BANISH_MAX;
+    private static final ModConfigSpec.IntValue HAUNTING_CAST_MIN;
+    private static final ModConfigSpec.IntValue HAUNTING_CAST_MAX;
+    private static final ModConfigSpec.BooleanValue HAUNTING_MONSTER_GHOSTS;
 
     static {
         ModConfigSpec.Builder common = new ModConfigSpec.Builder();
@@ -97,83 +122,132 @@ public final class SpectralConfig {
                 .comment("Whether Broad Breaker can be obtained and works. When false it stays registered (so enchanted items",
                         "keep it) but does nothing and no longer turns up in enchanting tables, loot, trades or recipes.",
                         "Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.broadBreaker.enabled")
+                .worldRestart()
                 .define("broadBreaker.enabled", true);
         BROAD_BREAKER_TREASURE_ONLY = common
                 .comment("If true, this enchantment is treasure-only: it can't be rolled at the enchanting table and is found",
                         "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.broadBreaker.treasure_only")
+                .worldRestart()
                 .define("broadBreaker.treasure_only", false);
-        SPECTRAL_WEAPON_ENABLED = common
-                .comment("Whether Spectral Weapon can be obtained and works. When false it stays registered (so enchanted items",
-                        "keep it) but does nothing and no longer turns up in enchanting tables, loot, trades or recipes.",
-                        "Takes effect after a restart or /reload.")
-                .define("spectralWeapon.enabled", true);
-        SPECTRAL_WEAPON_TREASURE_ONLY = common
-                .comment("If true, this enchantment is treasure-only: it can't be rolled at the enchanting table and is found",
-                        "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
-                .define("spectralWeapon.treasure_only", false);
         FAR_MINER_ENABLED = common
                 .comment("Whether Far Miner can be obtained and works. When false it stays registered (so enchanted items",
                         "keep it) but does nothing and no longer turns up in enchanting tables, loot, trades or recipes.",
                         "Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.farMiner.enabled")
+                .worldRestart()
                 .define("farMiner.enabled", true);
         FAR_MINER_TREASURE_ONLY = common
                 .comment("If true, this enchantment is treasure-only: it can't be rolled at the enchanting table and is found",
                         "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.farMiner.treasure_only")
+                .worldRestart()
                 .define("farMiner.treasure_only", false);
         GATHER_ENABLED = common
                 .comment("Whether Gather can be obtained and works. When false it stays registered (so enchanted items",
                         "keep it) but does nothing and no longer turns up in enchanting tables, loot, trades or recipes.",
                         "Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.gather.enabled")
+                .worldRestart()
                 .define("gather.enabled", true);
         GATHER_TREASURE_ONLY = common
                 .comment("If true, this enchantment is treasure-only: it can't be rolled at the enchanting table and is found",
                         "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.gather.treasure_only")
+                .worldRestart()
                 .define("gather.treasure_only", false);
         BRANCH_FINDING_ENABLED = common
                 .comment("Whether Branch Finding can be obtained and works. When false it stays registered (so enchanted items",
                         "keep it) but does nothing and no longer turns up in enchanting tables, loot, trades or recipes.",
                         "Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.branchFinding.enabled")
+                .worldRestart()
                 .define("branchFinding.enabled", true);
         BRANCH_FINDING_TREASURE_ONLY = common
                 .comment("If true, this enchantment is treasure-only: it can't be rolled at the enchanting table and is found",
                         "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.branchFinding.treasure_only")
+                .worldRestart()
                 .define("branchFinding.treasure_only", false);
         ANIMATED_ENABLED = common
                 .comment("Whether Animated can be obtained and works. When false it stays registered (so enchanted items",
                         "keep it) but does nothing and no longer turns up in loot, trades or recipes.",
                         "Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.animated.enabled")
+                .worldRestart()
                 .define("animated.enabled", true);
         ANIMATED_TREASURE_ONLY = common
                 .comment("If true, this enchantment is treasure-only: it can't be rolled at the enchanting table and is found",
                         "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.animated.treasure_only")
+                .worldRestart()
                 .define("animated.treasure_only", true);
         CATAPULTING_ENABLED = common
                 .comment("Whether Catapulting can be obtained and works. When false it stays registered (so enchanted items",
                         "keep it) but does nothing and no longer turns up in enchanting tables, loot, trades or recipes.",
                         "Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.catapulting.enabled")
+                .worldRestart()
                 .define("catapulting.enabled", true);
         CATAPULTING_TREASURE_ONLY = common
                 .comment("If true, this enchantment is treasure-only: it can't be rolled at the enchanting table and is found",
                         "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.catapulting.treasure_only")
+                .worldRestart()
                 .define("catapulting.treasure_only", false);
         EXPLOSIVE_BOLTS_ENABLED = common
                 .comment("Whether Explosive Bolts can be obtained and works. When false it stays registered (so enchanted items",
                         "keep it) but does nothing and no longer turns up in enchanting tables, loot, trades or recipes.",
                         "Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.explosiveBolts.enabled")
+                .worldRestart()
                 .define("explosiveBolts.enabled", true);
         EXPLOSIVE_BOLTS_TREASURE_ONLY = common
                 .comment("If true, this enchantment is treasure-only: it can't be rolled at the enchanting table and is found",
                         "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.explosiveBolts.treasure_only")
+                .worldRestart()
                 .define("explosiveBolts.treasure_only", false);
+        DOPPELGANGER_ENABLED = common
+                .comment("Whether Doppelganger can be obtained and works. When false it stays registered (so enchanted items",
+                        "keep it) but does nothing and no longer turns up in enchanting tables, loot, trades or recipes.",
+                        "Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.doppelganger.enabled")
+                .worldRestart()
+                .define("doppelganger.enabled", true);
+        DOPPELGANGER_TREASURE_ONLY = common
+                .comment("If true, this enchantment is treasure-only: it can't be rolled at the enchanting table and is found",
+                        "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.doppelganger.treasure_only")
+                .worldRestart()
+                .define("doppelganger.treasure_only", false);
         POSSESSION_CURSE_ENABLED = common
                 .comment("Whether Curse of Possession can be obtained and works. When false it stays registered (so cursed items",
                         "keep it) but does nothing and no longer turns up in loot, trades or recipes.",
                         "Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.possessionCurse.enabled")
+                .worldRestart()
                 .define("possessionCurse.enabled", true);
         POSSESSION_CURSE_TREASURE_ONLY = common
                 .comment("If true, this enchantment is treasure-only: it can't be rolled at the enchanting table and is found",
                         "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.possessionCurse.treasure_only")
+                .worldRestart()
                 .define("possessionCurse.treasure_only", true);
+        HAUNTING_CURSE_ENABLED = common
+                .comment("Whether Curse of Haunting can be obtained and works. When false it stays registered (so cursed items",
+                        "keep it) but does nothing and no longer turns up in loot, trades or recipes.",
+                        "Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.hauntingCurse.enabled")
+                .worldRestart()
+                .define("hauntingCurse.enabled", true);
+        HAUNTING_CURSE_TREASURE_ONLY = common
+                .comment("If true, this enchantment is treasure-only: it can't be rolled at the enchanting table and is found",
+                        "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.hauntingCurse.treasure_only")
+                .worldRestart()
+                .define("hauntingCurse.treasure_only", true);
         COMMON_SPEC = common.build();
 
         ModConfigSpec.Builder server = new ModConfigSpec.Builder();
@@ -181,133 +255,254 @@ public final class SpectralConfig {
                 .comment("Width and height of the area Broad Breaker mines, for levels I, II and III, in blocks.",
                         "Three odd numbers, each greater than 1 (at most " + MAX_BREAKER_AREA + ") and greater than the one before.",
                         "An invalid list is reset to the default.")
+                .translation("spectral_enchantments.configuration.broadBreaker.areas")
                 .define(List.of("broadBreaker", "areas"), () -> DEFAULT_BREAKER_AREAS,
                         value -> isValidLevels(value, MAX_BREAKER_AREA, size -> size % 2 == 1), List.class);
-        WEAPON_RANGES = server
-                .comment("How far from you Spectral Weapon fights, for levels I, II and III, in blocks.",
-                        "A target further away than this is dropped. Three whole numbers, each greater than 1",
-                        "(at most " + MAX_WEAPON_RANGE + ") and greater than the one before. An invalid list is reset to the default.")
-                .define(List.of("spectralWeapon", "ranges"), () -> DEFAULT_WEAPON_RANGES,
-                        value -> isValidLevels(value, MAX_WEAPON_RANGE, range -> true), List.class);
         FAR_MINER_RANGES = server
                 .comment("The farthest Far Miner can mine from the player's eyes, for levels I, II and III, in blocks.",
                         "Three whole numbers, each at least " + MIN_FAR_MINER_RANGE + " (at most " + MAX_FAR_MINER_RANGE + ") and greater than the one before.",
                         "An invalid list is reset to the default.")
+                .translation("spectral_enchantments.configuration.farMiner.ranges")
                 .define(List.of("farMiner", "ranges"), () -> DEFAULT_FAR_MINER_RANGES,
                         value -> isValidLevels(value, MAX_FAR_MINER_RANGE, range -> range >= MIN_FAR_MINER_RANGE), List.class);
         FAR_MINER_SPEED = server
                 .comment("Far Miner's mining speed, as a fraction of normal (like mining while airborne, which is 0.2).",
                         "Replaces vanilla's underwater and airborne penalties rather than adding to them (Mining Fatigue still applies).",
                         "Normal mining is unaffected.")
+                .translation("spectral_enchantments.configuration.farMiner.speedMultiplier")
                 .defineInRange(List.of("farMiner", "speedMultiplier"), 0.2, 0.01, 1.0);
         BRANCH_FINDING_DURATION = server
                 .comment("How long Branch Finding's outlines last, in seconds. They fade steadily from the moment they appear.")
+                .translation("spectral_enchantments.configuration.branchFinding.durationSeconds")
                 .defineInRange(List.of("branchFinding", "durationSeconds"), 16, 1, 300);
         BRANCH_FINDING_MAX_LEAVES = server
                 .comment("The most leaf blocks one use of Branch Finding searches, nearest first. Logs touching leaves past",
                         "this limit aren't outlined. Bounds the work done for huge or merged canopies.")
+                .translation("spectral_enchantments.configuration.branchFinding.maxLeaves")
                 .defineInRange(List.of("branchFinding", "maxLeaves"), 4096, 16, MAX_BRANCH_FINDING_LEAVES);
         BRANCH_FINDING_COOLDOWN = server
                 .comment("Ticks (20 per second) before the tool can be used again after Branch Finding, so holding the use",
                         "button doesn't drain durability. 0 for none.")
+                .translation("spectral_enchantments.configuration.branchFinding.cooldownTicks")
                 .defineInRange(List.of("branchFinding", "cooldownTicks"), 20, 0, 1200);
+        ANIMATED_COMPANION_RANGE = server
+                .comment("How far from you an Animated weapon in your hotbar fights, in blocks. A target further away than this is dropped.")
+                .translation("spectral_enchantments.configuration.animated.companionRange")
+                .defineInRange(List.of("animated", "companionRange"), 12, 2, MAX_COMPANION_RANGE);
         ANIMATED_STAND_RADIUS = server
                 .comment("How far from an armor stand its Animated weapon looks for hostile mobs to fight, in blocks.")
+                .translation("spectral_enchantments.configuration.animated.standRadius")
                 .defineInRange(List.of("animated", "standRadius"), 8, 1, 32);
         ANIMATED_DEPLOY_RADIUS = server
                 .comment("How far from the spot it was left at a deployed Animated weapon fights hostile mobs, in blocks.")
+                .translation("spectral_enchantments.configuration.animated.deployRadius")
                 .defineInRange(List.of("animated", "deployRadius"), 4, 1, 16);
         ANIMATED_DEPLOY_SECONDS = server
                 .comment("How long a deployed Animated weapon fights before flying back to its owner, in seconds.")
+                .translation("spectral_enchantments.configuration.animated.deploySeconds")
                 .defineInRange(List.of("animated", "deploySeconds"), 15, 1, 600);
         ANIMATED_RECALL_DISTANCE = server
                 .comment("How far the owner can stray from a deployed Animated weapon before it flies back to them, in blocks.",
                         "Always at least one more than deployRadius.")
+                .translation("spectral_enchantments.configuration.animated.recallDistance")
                 .defineInRange(List.of("animated", "recallDistance"), 16, 2, 128);
         ANIMATED_THROWN_RECALL_DISTANCE = server
                 .comment("As recallDistance, for an Animated weapon that was thrown or fired and stands guard where it landed",
                         "(and for weapons tagged spectral_enchantments:animated/thrown_weapons, however they were left).",
                         "Always at least one more than deployRadius.")
+                .translation("spectral_enchantments.configuration.animated.thrownRecallDistance")
                 .defineInRange(List.of("animated", "thrownRecallDistance"), 32, 2, 256);
         ANIMATED_RECALL_COOLDOWN = server
                 .comment("How long, in seconds, a recalled Animated weapon can't be swung once it is back in hand. 0 for none.")
+                .translation("spectral_enchantments.configuration.animated.recallCooldownSeconds")
                 .defineInRange(List.of("animated", "recallCooldownSeconds"), 2.0, 0.0, 60.0);
         CATAPULTING_BOW_COST = server
                 .comment("Durability a Catapulting bow loses for each shot it fires from the off hand. Unbreaking still applies.")
+                .translation("spectral_enchantments.configuration.catapulting.bowDurabilityCost")
                 .defineInRange(List.of("catapulting", "bowDurabilityCost"), 2, 0, 64);
         CATAPULTING_WEAPON_COST = server
                 .comment("Durability a weapon or tool loses when a Catapulting bow fires it. Unbreaking still applies.",
                         "A weapon this would break isn't fired.")
+                .translation("spectral_enchantments.configuration.catapulting.weaponDurabilityCost")
                 .defineInRange(List.of("catapulting", "weaponDurabilityCost"), 1, 0, 64);
         CATAPULTING_RARITY_HEARTS = server
                 .comment("Hearts of damage dealt by a catapulted item that is neither a weapon nor normally thrown (blocks",
                         "included), by rarity: common, uncommon, rare, epic. A full draw deals this much, a weaker one less.",
                         "Four numbers from 0 to " + (int) MAX_CATAPULT_HEARTS + ". An invalid list is reset to the default.")
+                .translation("spectral_enchantments.configuration.catapulting.rarityHearts")
                 .define(List.of("catapulting", "rarityHearts"), () -> DEFAULT_CATAPULT_RARITY_HEARTS,
                         SpectralConfig::isValidRarityHearts, List.class);
         CATAPULTING_PLACE_BLOCKS = server
                 .comment("Whether catapulted blocks are placed where they land. When false they drop as items instead.")
+                .translation("spectral_enchantments.configuration.catapulting.placeBlocks")
                 .define(List.of("catapulting", "placeBlocks"), true);
         CATAPULTING_USE_ITEMS = server
                 .comment("Whether fired items are used where they land, as clicking with them would (fire charges light fires,",
                         "spawn eggs hatch, buckets pour, food is eaten, armor is put on...). When false they just drop.")
+                .translation("spectral_enchantments.configuration.catapulting.useItems")
                 .define(List.of("catapulting", "useItems"), true);
+        CATAPULTING_EXPLODE_CRYSTALS = server
+                .comment("Whether a fired end crystal that can't be set down where it lands explodes there, as a crystal does.",
+                        "It never does where its shooter couldn't build. When false it drops instead.")
+                .translation("spectral_enchantments.configuration.catapulting.explodeCrystals")
+                .define(List.of("catapulting", "explodeCrystals"), true);
         CATAPULTING_PHYSICS_BLOCKS = server
                 .comment("With Sable installed: fire blocks as physics objects that set themselves down where they land, and stay",
                         "loose if they hit a creature on the way. Blocks tagged spectral_enchantments:catapulting/no_physics never are.")
+                .translation("spectral_enchantments.configuration.catapulting.physicsBlocks")
                 .define(List.of("catapulting", "physicsBlocks"), false);
         EXPLOSIVE_BOLTS_FIRE_RADIUS = server
                 .comment("How far a blaze rod fired by Explosive Bolts sprays fire from where it lands, in blocks.")
+                .translation("spectral_enchantments.configuration.explosiveBolts.blazeFireRadius")
                 .defineInRange(List.of("explosiveBolts", "blazeFireRadius"), 3, 1, 8);
         EXPLOSIVE_BOLTS_BURN_SECONDS = server
                 .comment("How long creatures caught in a blaze rod's spray of fire burn, in seconds.")
+                .translation("spectral_enchantments.configuration.explosiveBolts.blazeBurnSeconds")
                 .defineInRange(List.of("explosiveBolts", "blazeBurnSeconds"), 5, 1, 60);
         EXPLOSIVE_BOLTS_GHAST_POWER = server
                 .comment("Explosion power of the fireball a ghast tear fires (a ghast's own is 1, a creeper's 3).")
+                .translation("spectral_enchantments.configuration.explosiveBolts.ghastExplosionPower")
                 .defineInRange(List.of("explosiveBolts", "ghastExplosionPower"), 1, 1, 5);
         EXPLOSIVE_BOLTS_DOUSE_RADIUS = server
                 .comment("How far from where it bursts a water bottle fired by Explosive Bolts puts out fires, in blocks.")
+                .translation("spectral_enchantments.configuration.explosiveBolts.waterDouseRadius")
                 .defineInRange(List.of("explosiveBolts", "waterDouseRadius"), 4, 1, 16);
+        DOPPELGANGER_LURE_RADIUS = server
+                .comment("How far from a Doppelganger's double a monster after its owner can be and still be drawn to the double",
+                        "instead, in blocks.")
+                .translation("spectral_enchantments.configuration.doppelganger.lureRadius")
+                .defineInRange(List.of("doppelganger", "lureRadius"), 16, 1, 64);
+        DOPPELGANGER_MAX_DISTANCE = server
+                .comment("How far the owner can stray from their double, still sneaking, before it vanishes, in blocks.")
+                .translation("spectral_enchantments.configuration.doppelganger.maxDistance")
+                .defineInRange(List.of("doppelganger", "maxDistance"), 32, 4, 128);
+        DOPPELGANGER_COOLDOWN = server
+                .comment("Ticks (20 per second) after a double appears before the next one can, so tapping sneak doesn't",
+                        "keep summoning them. 0 for none.")
+                .translation("spectral_enchantments.configuration.doppelganger.cooldownTicks")
+                .defineInRange(List.of("doppelganger", "cooldownTicks"), 20, 0, 1200);
+        DOPPELGANGER_EMOTE_MIN = server
+                .comment("With Quark installed: the shortest wait between a double's emotes, in seconds.")
+                .translation("spectral_enchantments.configuration.doppelganger.emoteMinSeconds")
+                .defineInRange(List.of("doppelganger", "emoteMinSeconds"), 5, 1, 600);
+        DOPPELGANGER_EMOTE_MAX = server
+                .comment("With Quark installed: the longest wait between a double's emotes, in seconds. Never less than",
+                        "emoteMinSeconds.")
+                .translation("spectral_enchantments.configuration.doppelganger.emoteMaxSeconds")
+                .defineInRange(List.of("doppelganger", "emoteMaxSeconds"), 20, 1, 600);
         CURSES_HIDE_UNTIL_HELD = server
-                .comment("Whether an item's curses stay out of its tooltip until it has been in a player's inventory",
-                        "(players in creative mode always see them). Enchanted books always show theirs.")
+                .comment("Whether an item's curses stay out of its tooltip until it has been in a player's inventory, or for",
+                        "armor (anything worn), until it has been worn. Players in creative mode always see them; enchanted",
+                        "books always show theirs.")
+                .translation("spectral_enchantments.configuration.curses.hideUntilHeld")
                 .define(List.of("curses", "hideUntilHeld"), true);
         CURSED_SECONDS = server
                 .comment("How long the Cursed effect lasts, in seconds. A player gets it the first time a cursed item lands in",
-                        "their inventory; while it lasts no cursed item they carry can be dropped or put in another container.",
+                        "their inventory (or cursed armor is put on); while it lasts no cursed item they carry can be dropped or put in another container.",
                         "0 for no effect.")
+                .translation("spectral_enchantments.configuration.curses.cursedSeconds")
                 .defineInRange(List.of("curses", "cursedSeconds"), 60, 0, 3600);
         POSSESSION_HEALTH_PER_DURABILITY = server
                 .comment("A possessed weapon's health for each point of durability the weapon had left (an iron sword has",
                         "250, a diamond sword 1561), kept within minHealth and maxHealth.")
+                .translation("spectral_enchantments.configuration.possessionCurse.healthPerDurability")
                 .defineInRange(List.of("possessionCurse", "healthPerDurability"), 0.05, 0.001, 10.0);
         POSSESSION_MIN_HEALTH = server
                 .comment("The least health a possessed weapon (or tool) has, however worn.")
+                .translation("spectral_enchantments.configuration.possessionCurse.minHealth")
                 .defineInRange(List.of("possessionCurse", "minHealth"), 6, 1, 1024);
         POSSESSION_MAX_HEALTH = server
                 .comment("The most health a possessed weapon or block has (40 is 20 hearts, a player's). Never less than minHealth.")
+                .translation("spectral_enchantments.configuration.possessionCurse.maxHealth")
                 .defineInRange(List.of("possessionCurse", "maxHealth"), 40, 1, 1024);
         POSSESSION_HEALTH_PER_HARDNESS = server
                 .comment("A possessed block's health for each point of its hardness (how long it takes to mine: dirt is 0.5,",
                         "stone 1.5, planks 2, iron blocks 5, obsidian 50), kept within itemHealth and maxHealth.",
                         "Unbreakable blocks get maxHealth.")
+                .translation("spectral_enchantments.configuration.possessionCurse.healthPerHardness")
                 .defineInRange(List.of("possessionCurse", "healthPerHardness"), 4.0, 0.0, 1024.0);
         POSSESSION_ITEM_HEALTH = server
                 .comment("The health of a possessed item without durability (neither a tool nor a block).")
+                .translation("spectral_enchantments.configuration.possessionCurse.itemHealth")
                 .defineInRange(List.of("possessionCurse", "itemHealth"), 1.0, 0.5, 1024.0);
         POSSESSION_ARMOR = server
                 .comment("A possessed weapon's armor points (a zombie has 2).")
+                .translation("spectral_enchantments.configuration.possessionCurse.armor")
                 .defineInRange(List.of("possessionCurse", "armor"), 2.0, 0.0, 30.0);
         POSSESSION_DAMAGE_MULTIPLIER = server
                 .comment("Multiplies the damage a possessed weapon deals, which is otherwise the weapon's own (enchantments included).")
+                .translation("spectral_enchantments.configuration.possessionCurse.damageMultiplier")
                 .defineInRange(List.of("possessionCurse", "damageMultiplier"), 1.0, 0.0, 10.0);
         POSSESSION_DROP_CHANCE = server
                 .comment("The chance, from 0 to 1, that a slain possessed weapon drops the weapon, its curses lifted.")
+                .translation("spectral_enchantments.configuration.possessionCurse.dropChance")
                 .defineInRange(List.of("possessionCurse", "dropChance"), 0.1, 0.0, 1.0);
         POSSESSION_DROP_DURABILITY = server
                 .comment("How much durability a weapon dropped by a slain possessed weapon has left, as a fraction of its",
                         "maximum (at least 1 point). A weapon freed by Ars Nouveau's Dispel keeps the durability it had.")
+                .translation("spectral_enchantments.configuration.possessionCurse.dropDurability")
                 .defineInRange(List.of("possessionCurse", "dropDurability"), 0.05, 0.0, 1.0);
+        HAUNTING_APPEAR_MIN = server
+                .comment("While a player wears armor with the Curse of Haunting, the shortest wait before their ghost appears",
+                        "(again), in seconds.")
+                .translation("spectral_enchantments.configuration.hauntingCurse.appearMinSeconds")
+                .defineInRange(List.of("hauntingCurse", "appearMinSeconds"), 180, 10, 7200);
+        HAUNTING_APPEAR_MAX = server
+                .comment("The longest wait before a haunted player's ghost appears, in seconds. Never less than appearMinSeconds.")
+                .translation("spectral_enchantments.configuration.hauntingCurse.appearMaxSeconds")
+                .defineInRange(List.of("hauntingCurse", "appearMaxSeconds"), 480, 10, 7200);
+        HAUNTING_STARE_SECONDS = server
+                .comment("How long the ghost stares before it goes, in seconds. Time spent with monsters doesn't count.")
+                .translation("spectral_enchantments.configuration.hauntingCurse.stareSeconds")
+                .defineInRange(List.of("hauntingCurse", "stareSeconds"), 30, 1, 600);
+        HAUNTING_STARE_MIN_DISTANCE = server
+                .comment("The nearest to the player the ghost appears, in blocks.")
+                .translation("spectral_enchantments.configuration.hauntingCurse.stareMinDistance")
+                .defineInRange(List.of("hauntingCurse", "stareMinDistance"), 12, 4, 64);
+        HAUNTING_STARE_MAX_DISTANCE = server
+                .comment("The farthest from the player the ghost appears, in blocks. Never less than stareMinDistance.")
+                .translation("spectral_enchantments.configuration.hauntingCurse.stareMaxDistance")
+                .defineInRange(List.of("hauntingCurse", "stareMaxDistance"), 20, 4, 64);
+        HAUNTING_APPROACH_DISTANCE = server
+                .comment("How close the player can come to a staring ghost before it flees, in blocks. Always less than",
+                        "stareMinDistance.")
+                .translation("spectral_enchantments.configuration.hauntingCurse.approachDistance")
+                .defineInRange(List.of("hauntingCurse", "approachDistance"), 8, 1, 63);
+        HAUNTING_MONSTER_RADIUS = server
+                .comment("How close to the player a monster must be for the ghost to leave off staring and go to it, in blocks.")
+                .translation("spectral_enchantments.configuration.hauntingCurse.monsterRadius")
+                .defineInRange(List.of("hauntingCurse", "monsterRadius"), 16, 1, 64);
+        HAUNTING_STRENGTH_RADIUS = server
+                .comment("How close to the ghost a monster must be to get Strength from it, in blocks.")
+                .translation("spectral_enchantments.configuration.hauntingCurse.strengthRadius")
+                .defineInRange(List.of("hauntingCurse", "strengthRadius"), 6, 1, 32);
+        HAUNTING_STRENGTH_LEVEL = server
+                .comment("The level of Strength the ghost gives monsters (1 is Strength I).")
+                .translation("spectral_enchantments.configuration.hauntingCurse.strengthLevel")
+                .defineInRange(List.of("hauntingCurse", "strengthLevel"), 1, 1, 5);
+        HAUNTING_BANISH_MIN = server
+                .comment("When a player strikes the ghost, the shortest time it stays gone, in seconds.")
+                .translation("spectral_enchantments.configuration.hauntingCurse.banishMinSeconds")
+                .defineInRange(List.of("hauntingCurse", "banishMinSeconds"), 10, 1, 600);
+        HAUNTING_BANISH_MAX = server
+                .comment("When a player strikes the ghost, the longest time it stays gone, in seconds. Never less than",
+                        "banishMinSeconds.")
+                .translation("spectral_enchantments.configuration.hauntingCurse.banishMaxSeconds")
+                .defineInRange(List.of("hauntingCurse", "banishMaxSeconds"), 20, 1, 600);
+        HAUNTING_CAST_MIN = server
+                .comment("The shortest wait between a player's ghost raising its arms like an evoker casting a spell, in seconds.")
+                .translation("spectral_enchantments.configuration.hauntingCurse.castMinSeconds")
+                .defineInRange(List.of("hauntingCurse", "castMinSeconds"), 8, 1, 600);
+        HAUNTING_CAST_MAX = server
+                .comment("The longest wait between a player's ghost's spell-casting gestures, in seconds. Never less than",
+                        "castMinSeconds.")
+                .translation("spectral_enchantments.configuration.hauntingCurse.castMaxSeconds")
+                .defineInRange(List.of("hauntingCurse", "castMaxSeconds"), 20, 1, 600);
+        HAUNTING_MONSTER_GHOSTS = server
+                .comment("Whether a monster wearing armor with the Curse of Haunting has its own ghost beside it. Each ghost is an",
+                        "extra entity, which adds up where many such monsters gather (mob farms).")
+                .translation("spectral_enchantments.configuration.hauntingCurse.monsterGhosts")
+                .define(List.of("hauntingCurse", "monsterGhosts"), true);
         SERVER_SPEC = server.build();
     }
 
@@ -351,14 +546,6 @@ public final class SpectralConfig {
 
     public static boolean broadBreakerEnabled() {
         return COMMON_SPEC.isLoaded() ? BROAD_BREAKER_ENABLED.get() : BROAD_BREAKER_ENABLED.getDefault();
-    }
-
-    public static boolean spectralWeaponTreasureOnly() {
-        return COMMON_SPEC.isLoaded() ? SPECTRAL_WEAPON_TREASURE_ONLY.get() : SPECTRAL_WEAPON_TREASURE_ONLY.getDefault();
-    }
-
-    public static boolean spectralWeaponEnabled() {
-        return COMMON_SPEC.isLoaded() ? SPECTRAL_WEAPON_ENABLED.get() : SPECTRAL_WEAPON_ENABLED.getDefault();
     }
 
     public static boolean farMinerTreasureOnly() {
@@ -409,6 +596,14 @@ public final class SpectralConfig {
         return COMMON_SPEC.isLoaded() ? EXPLOSIVE_BOLTS_ENABLED.get() : EXPLOSIVE_BOLTS_ENABLED.getDefault();
     }
 
+    public static boolean doppelgangerTreasureOnly() {
+        return COMMON_SPEC.isLoaded() ? DOPPELGANGER_TREASURE_ONLY.get() : DOPPELGANGER_TREASURE_ONLY.getDefault();
+    }
+
+    public static boolean doppelgangerEnabled() {
+        return COMMON_SPEC.isLoaded() ? DOPPELGANGER_ENABLED.get() : DOPPELGANGER_ENABLED.getDefault();
+    }
+
     public static boolean possessionCurseTreasureOnly() {
         return COMMON_SPEC.isLoaded() ? POSSESSION_CURSE_TREASURE_ONLY.get() : POSSESSION_CURSE_TREASURE_ONLY.getDefault();
     }
@@ -417,14 +612,17 @@ public final class SpectralConfig {
         return COMMON_SPEC.isLoaded() ? POSSESSION_CURSE_ENABLED.get() : POSSESSION_CURSE_ENABLED.getDefault();
     }
 
+    public static boolean hauntingCurseTreasureOnly() {
+        return COMMON_SPEC.isLoaded() ? HAUNTING_CURSE_TREASURE_ONLY.get() : HAUNTING_CURSE_TREASURE_ONLY.getDefault();
+    }
+
+    public static boolean hauntingCurseEnabled() {
+        return COMMON_SPEC.isLoaded() ? HAUNTING_CURSE_ENABLED.get() : HAUNTING_CURSE_ENABLED.getDefault();
+    }
+
     /** Broad Breaker's area width at {@code level} (levels above III use III's). */
     public static int broadBreakerArea(int level) {
         return forLevel(BREAKER_AREAS, DEFAULT_BREAKER_AREAS, level);
-    }
-
-    /** Spectral Weapon's range at {@code level} (levels above III use III's). */
-    public static int spectralWeaponRange(int level) {
-        return forLevel(WEAPON_RANGES, DEFAULT_WEAPON_RANGES, level);
     }
 
     /** The farthest Far Miner mines (from the eyes) at {@code level} (levels above III use III's). */
@@ -450,6 +648,11 @@ public final class SpectralConfig {
     /** Item cooldown after a use of Branch Finding, in ticks. */
     public static int branchFindingCooldownTicks() {
         return SERVER_SPEC.isLoaded() ? BRANCH_FINDING_COOLDOWN.get() : BRANCH_FINDING_COOLDOWN.getDefault();
+    }
+
+    /** How far from its owner a hotbar Animated weapon fights, in blocks. */
+    public static int animatedCompanionRange() {
+        return SERVER_SPEC.isLoaded() ? ANIMATED_COMPANION_RANGE.get() : ANIMATED_COMPANION_RANGE.getDefault();
     }
 
     /** How far from its armor stand an Animated weapon looks for targets. */
@@ -510,6 +713,11 @@ public final class SpectralConfig {
         return SERVER_SPEC.isLoaded() ? CATAPULTING_USE_ITEMS.get() : CATAPULTING_USE_ITEMS.getDefault();
     }
 
+    /** Whether a fired end crystal that can't be set down explodes. */
+    public static boolean catapultingExplodesCrystals() {
+        return SERVER_SPEC.isLoaded() ? CATAPULTING_EXPLODE_CRYSTALS.get() : CATAPULTING_EXPLODE_CRYSTALS.getDefault();
+    }
+
     /** Whether, with Sable, fired blocks fly as physics objects. */
     public static boolean catapultingPhysicsBlocks() {
         return SERVER_SPEC.isLoaded() ? CATAPULTING_PHYSICS_BLOCKS.get() : CATAPULTING_PHYSICS_BLOCKS.getDefault();
@@ -533,6 +741,32 @@ public final class SpectralConfig {
     /** Explosion power of a ghast tear's fireball. */
     public static int explosiveBoltsGhastPower() {
         return SERVER_SPEC.isLoaded() ? EXPLOSIVE_BOLTS_GHAST_POWER.get() : EXPLOSIVE_BOLTS_GHAST_POWER.getDefault();
+    }
+
+    /** How far from a double a monster after its owner is drawn to it, in blocks. */
+    public static int doppelgangerLureRadius() {
+        return SERVER_SPEC.isLoaded() ? DOPPELGANGER_LURE_RADIUS.get() : DOPPELGANGER_LURE_RADIUS.getDefault();
+    }
+
+    /** How far the owner may stray from their double before it vanishes, in blocks. */
+    public static int doppelgangerMaxDistance() {
+        return SERVER_SPEC.isLoaded() ? DOPPELGANGER_MAX_DISTANCE.get() : DOPPELGANGER_MAX_DISTANCE.getDefault();
+    }
+
+    /** Ticks between one double appearing and the next. */
+    public static int doppelgangerCooldownTicks() {
+        return SERVER_SPEC.isLoaded() ? DOPPELGANGER_COOLDOWN.get() : DOPPELGANGER_COOLDOWN.getDefault();
+    }
+
+    /** Shortest wait between a double's Quark emotes, in ticks. */
+    public static int doppelgangerEmoteMinTicks() {
+        return 20 * (SERVER_SPEC.isLoaded() ? DOPPELGANGER_EMOTE_MIN.get() : DOPPELGANGER_EMOTE_MIN.getDefault());
+    }
+
+    /** Longest wait between a double's Quark emotes, in ticks; never below {@link #doppelgangerEmoteMinTicks()}. */
+    public static int doppelgangerEmoteMaxTicks() {
+        int max = 20 * (SERVER_SPEC.isLoaded() ? DOPPELGANGER_EMOTE_MAX.get() : DOPPELGANGER_EMOTE_MAX.getDefault());
+        return Math.max(max, doppelgangerEmoteMinTicks());
     }
 
     /** Whether curses stay out of tooltips until the item has been in a player's inventory. */
@@ -584,6 +818,82 @@ public final class SpectralConfig {
     /** Durability left on a slain possessed weapon's drop, as a fraction of the maximum. */
     public static double possessionDropDurability() {
         return SERVER_SPEC.isLoaded() ? POSSESSION_DROP_DURABILITY.get() : POSSESSION_DROP_DURABILITY.getDefault();
+    }
+
+    /** Shortest wait before a haunted player's ghost appears, in ticks. */
+    public static int hauntingAppearMinTicks() {
+        return 20 * (SERVER_SPEC.isLoaded() ? HAUNTING_APPEAR_MIN.get() : HAUNTING_APPEAR_MIN.getDefault());
+    }
+
+    /** Longest wait before a haunted player's ghost appears, in ticks; never below {@link #hauntingAppearMinTicks()}. */
+    public static int hauntingAppearMaxTicks() {
+        int max = 20 * (SERVER_SPEC.isLoaded() ? HAUNTING_APPEAR_MAX.get() : HAUNTING_APPEAR_MAX.getDefault());
+        return Math.max(max, hauntingAppearMinTicks());
+    }
+
+    /** How long the ghost stares before going, in ticks. */
+    public static int hauntingStareTicks() {
+        return 20 * (SERVER_SPEC.isLoaded() ? HAUNTING_STARE_SECONDS.get() : HAUNTING_STARE_SECONDS.getDefault());
+    }
+
+    public static int hauntingStareMinDistance() {
+        return SERVER_SPEC.isLoaded() ? HAUNTING_STARE_MIN_DISTANCE.get() : HAUNTING_STARE_MIN_DISTANCE.getDefault();
+    }
+
+    /** Never below {@link #hauntingStareMinDistance()}. */
+    public static int hauntingStareMaxDistance() {
+        int max = SERVER_SPEC.isLoaded() ? HAUNTING_STARE_MAX_DISTANCE.get() : HAUNTING_STARE_MAX_DISTANCE.getDefault();
+        return Math.max(max, hauntingStareMinDistance());
+    }
+
+    /** How close the player can come to a staring ghost before it flees; always below {@link #hauntingStareMinDistance()}. */
+    public static int hauntingApproachDistance() {
+        int distance = SERVER_SPEC.isLoaded() ? HAUNTING_APPROACH_DISTANCE.get() : HAUNTING_APPROACH_DISTANCE.getDefault();
+        return Math.min(distance, hauntingStareMinDistance() - 1);
+    }
+
+    public static int hauntingMonsterRadius() {
+        return SERVER_SPEC.isLoaded() ? HAUNTING_MONSTER_RADIUS.get() : HAUNTING_MONSTER_RADIUS.getDefault();
+    }
+
+    /** How far from its owner the ghost can be before it goes: well past anywhere it would stare or haunt from. */
+    public static int hauntingLeashDistance() {
+        return 2 * Math.max(hauntingStareMaxDistance(), hauntingMonsterRadius() + hauntingStrengthRadius());
+    }
+
+    public static int hauntingStrengthRadius() {
+        return SERVER_SPEC.isLoaded() ? HAUNTING_STRENGTH_RADIUS.get() : HAUNTING_STRENGTH_RADIUS.getDefault();
+    }
+
+    public static int hauntingStrengthLevel() {
+        return SERVER_SPEC.isLoaded() ? HAUNTING_STRENGTH_LEVEL.get() : HAUNTING_STRENGTH_LEVEL.getDefault();
+    }
+
+    /** Shortest time a struck ghost stays gone, in ticks. */
+    public static int hauntingBanishMinTicks() {
+        return 20 * (SERVER_SPEC.isLoaded() ? HAUNTING_BANISH_MIN.get() : HAUNTING_BANISH_MIN.getDefault());
+    }
+
+    /** Longest time a struck ghost stays gone, in ticks; never below {@link #hauntingBanishMinTicks()}. */
+    public static int hauntingBanishMaxTicks() {
+        int max = 20 * (SERVER_SPEC.isLoaded() ? HAUNTING_BANISH_MAX.get() : HAUNTING_BANISH_MAX.getDefault());
+        return Math.max(max, hauntingBanishMinTicks());
+    }
+
+    /** Shortest wait between a player's ghost's spell-casting gestures, in ticks. */
+    public static int hauntingCastMinTicks() {
+        return 20 * (SERVER_SPEC.isLoaded() ? HAUNTING_CAST_MIN.get() : HAUNTING_CAST_MIN.getDefault());
+    }
+
+    /** Longest wait between a player's ghost's spell-casting gestures, in ticks; never below {@link #hauntingCastMinTicks()}. */
+    public static int hauntingCastMaxTicks() {
+        int max = 20 * (SERVER_SPEC.isLoaded() ? HAUNTING_CAST_MAX.get() : HAUNTING_CAST_MAX.getDefault());
+        return Math.max(max, hauntingCastMinTicks());
+    }
+
+    /** Whether monsters wearing the Curse of Haunting get ghosts of their own. */
+    public static boolean hauntingMonsterGhosts() {
+        return SERVER_SPEC.isLoaded() ? HAUNTING_MONSTER_GHOSTS.get() : HAUNTING_MONSTER_GHOSTS.getDefault();
     }
 
     /** Defaults until the world's server config is loaded (or synced, on a client). */

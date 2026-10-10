@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "#spectral_enchantments:non_treasure/broad_breaker",
+    "#spectral_enchantments:treasure_only/broad_breaker",
+    "#spectral_enchantments:non_treasure/gather",
+    "#spectral_enchantments:treasure_only/gather"
+  ]
+}

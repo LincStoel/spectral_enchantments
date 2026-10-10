@@ -25,7 +25,6 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.item.alchemy.Potions;
 import net.minecraft.world.item.ProjectileWeaponItem;
-import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -65,13 +64,7 @@ public final class ExplosiveBolts {
     }
 
     public static boolean has(Level level, ItemStack crossbow) {
-        if (crossbow.isEmpty() || !SpectralConfig.explosiveBoltsEnabled()) {
-            return false;
-        }
-        return level.registryAccess().registry(Registries.ENCHANTMENT)
-                .flatMap(registry -> registry.getHolder(ModEnchantments.EXPLOSIVE_BOLTS))
-                .map(holder -> EnchantmentHelper.getItemEnchantmentLevel(holder, crossbow) > 0)
-                .orElse(false);
+        return ModEnchantments.has(level, ModEnchantments.EXPLOSIVE_BOLTS, crossbow);
     }
 
     /** What the item does when fired, or null if it isn't explosive ammunition. */

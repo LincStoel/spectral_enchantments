@@ -1,5 +1,6 @@
 package com.linc.spectralenchantments.gametest;
 
+import com.linc.spectralenchantments.StackCooldowns;
 import com.linc.spectralenchantments.ModEnchantments;
 import com.linc.spectralenchantments.SpectralEnchantments;
 import com.linc.spectralenchantments.animated.Animated;
@@ -138,8 +139,8 @@ public final class AnimatedGameTests {
         // An iron sword swings 1.6 times a second: a full charge every 12.5 ticks.
         helper.assertTrue(WeaponProfile.of(new ItemStack(Items.IRON_SWORD), 1.0).intervalTicks() == Math.round(20.0 / 1.6),
                 "Animated weapons attack at the wielder's speed");
-        helper.assertTrue(WeaponProfile.of(new ItemStack(Items.IRON_SWORD)).intervalTicks() == Math.round(2 * 20.0 / 1.6),
-                "Spectral weapons still attack at half speed");
+        helper.assertTrue(WeaponProfile.of(new ItemStack(Items.IRON_SWORD), 2.0).intervalTicks() == Math.round(2 * 20.0 / 1.6),
+                "Companions attack at half speed");
         helper.succeed();
     }
 
@@ -235,7 +236,7 @@ public final class AnimatedGameTests {
                 Vec3.atCenterOf(helper.absolutePos(new BlockPos(4, 2, 4))));
         helper.runAfterDelay(3, () -> {
             weapon.recall();
-            helper.assertTrue(player.getCooldowns().isOnCooldown(Items.IRON_SWORD), "A recalled weapon cools down");
+            helper.assertTrue(StackCooldowns.isActive(player.getMainHandItem(), player.level()), "A recalled weapon cools down");
             Husk husk = helper.spawnWithNoFreeWill(EntityType.HUSK, STAND_POS.east());
             helper.assertTrue(net.neoforged.neoforge.common.CommonHooks.onPlayerAttackTarget(player, husk) == false,
                     "It can't be swung while it cools down");
@@ -280,6 +281,36 @@ public final class AnimatedGameTests {
         });
     }
 
+    /** Its owner gone, a thrown weapon waits where it is, saved with the world, rather than dropping (and despawning). */
+    @GameTest(template = "empty", timeoutTicks = 260)
+    public static void thrownWeaponWaitsForItsOwner(GameTestHelper helper) {
+        for (int x = 0; x < 9; x++) {
+            for (int z = 0; z < 9; z++) {
+                helper.setBlock(new BlockPos(x, 1, z), Blocks.STONE);
+            }
+        }
+        FakePlayer player = player(helper, new BlockPos(4, 6, 4));
+        net.minecraft.world.entity.projectile.ThrownTrident thrown =
+                new net.minecraft.world.entity.projectile.ThrownTrident(helper.getLevel(), player, enchanted(helper, Items.TRIDENT));
+        thrown.shootFromRotation(player, 90f, 0f, 0f, 2.5f, 0f);
+        helper.getLevel().addFreshEntity(thrown);
+        AABB area = new AABB(helper.absolutePos(BlockPos.ZERO)).expandTowards(9, 9, 9);
+        helper.runAfterDelay(20, () -> {
+            AnimatedWeaponEntity guard = helper.getLevel().getEntitiesOfClass(AnimatedWeaponEntity.class, area).stream()
+                    .filter(AnimatedWeaponEntity::isThrown).findFirst().orElse(null);
+            helper.assertTrue(guard != null, "The trident should stand guard where it landed");
+            player.discard(); // logged out
+            helper.runAfterDelay(200, () -> {
+                helper.assertTrue(!guard.isRemoved(), "Its owner away, it still waits");
+                helper.assertTrue(guard.shouldBeSaved(), "...saved with the world");
+                helper.assertTrue(helper.getLevel().getEntitiesOfClass(net.minecraft.world.entity.item.ItemEntity.class, area).isEmpty(),
+                        "It isn't dropped as an item, which would despawn");
+                guard.discard();
+                helper.succeed();
+            });
+        });
+    }
+
     @GameTest(template = "empty")
     public static void exclusiveWithLoyalty(GameTestHelper helper) {
         helper.assertFalse(Enchantment.areCompatible(holder(helper, ModEnchantments.ANIMATED),
@@ -288,10 +319,8 @@ public final class AnimatedGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void exclusiveWithSpectralWeaponAndFarMiner(GameTestHelper helper) {
+    public static void exclusiveWithFarMiner(GameTestHelper helper) {
         Holder<Enchantment> animated = holder(helper, ModEnchantments.ANIMATED);
-        helper.assertFalse(Enchantment.areCompatible(animated, holder(helper, ModEnchantments.SPECTRAL_WEAPON)),
-                "Animated and Spectral Weapon are mutually exclusive");
         helper.assertFalse(Enchantment.areCompatible(animated, holder(helper, ModEnchantments.FAR_MINER)),
                 "Animated and Far Miner are mutually exclusive");
         helper.assertTrue(Enchantment.areCompatible(animated, holder(helper, ModEnchantments.GATHER)),

@@ -3,23 +3,30 @@ package com.linc.spectralenchantments.curse;
 import com.linc.spectralenchantments.ModComponents;
 import com.linc.spectralenchantments.ModEffects;
 import com.linc.spectralenchantments.SpectralConfig;
+import com.linc.spectralenchantments.SpectralEnchantments;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
 import javax.annotation.Nullable;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.Holder;
 import net.minecraft.core.component.DataComponents;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.tags.EnchantmentTags;
+import net.minecraft.tags.TagKey;
 import net.minecraft.util.Unit;
+import net.minecraft.world.Difficulty;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.animal.allay.Allay;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.entity.decoration.ItemFrame;
@@ -30,9 +37,11 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
+import net.minecraft.world.level.block.Block;
 import net.neoforged.bus.api.ICancellableEvent;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.common.util.FakePlayer;
+import net.neoforged.neoforge.event.ItemStackedOnOtherEvent;
 import net.neoforged.neoforge.event.entity.item.ItemTossEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
@@ -42,7 +51,8 @@ import net.neoforged.neoforge.event.tick.PlayerTickEvent;
  *
  * <ul>
  *   <li>An item's curses stay out of its tooltip (see the client's CurseTooltips) until it has been in a survival
- *       player's inventory, when it is marked {@link ModComponents#CURSES_REVEALED}.</li>
+ *       player's inventory, when it is marked {@link ModComponents#CURSES_REVEALED}. Armor (anything worn) keeps
+ *       them hidden until it is put on.</li>
  *   <li>Revealing a curse gives the player Cursed: while it lasts, no cursed item they carry can be dropped or put
  *       into another container (the menu clicks are refused by the container mixins, which ask
  *       {@link #mayPlace}).</li>
@@ -50,6 +60,14 @@ import net.neoforged.neoforge.event.tick.PlayerTickEvent;
  * </ul>
  */
 public final class Curses {
+    /** Blocks that take a held item on use (decorated pots, modded pedestals): a locked item can't go into them. */
+    public static final TagKey<Block> REFUSES_ITEMS = TagKey.create(Registries.BLOCK, SpectralEnchantments.id("cursed/refuses_items"));
+
+    /** Each player's inventory as last looked at, by stack identity, so unchanged slots are skipped. Server thread. */
+    private static final Map<Player, ItemStack[]> SEEN = new WeakHashMap<>();
+    /** How often every slot is looked at anyway, in ticks. */
+    private static final int FULL_SCAN_INTERVAL = 20;
+
     /** The player whose menu click is being handled on this thread, for the container mixins. */
     private static final ThreadLocal<Player> CLICKING = new ThreadLocal<>();
 
@@ -136,7 +154,7 @@ public final class Curses {
     }
 
     /**
-     * Reveals the curses of every cursed item newly in the player's inventory. Possessed weapons leave; any other
+     * Reveals the curses of every cursed item newly in the player's inventory, or for armor, newly worn. Possessed weapons leave; any other
      * newly revealed curse makes the player Cursed. Returns how many items were revealed.
      */
     public static int reveal(ServerPlayer player) {
@@ -144,17 +162,34 @@ public final class Curses {
             return 0;
         }
         Inventory inventory = player.getInventory();
+        ItemStack[] seen = SEEN.get(player);
+        if (seen == null || seen.length != inventory.getContainerSize()) {
+            seen = new ItemStack[inventory.getContainerSize()];
+            SEEN.put(player, seen);
+        }
+        // Only slots holding a stack not seen there before, but every so often all of them: an item can be cursed
+        // where it lies (a command, say), or wait out Peaceful.
+        boolean everything = player.level().getGameTime() % FULL_SCAN_INTERVAL == 0;
         List<Integer> possessed = new ArrayList<>();
         int revealed = 0;
         boolean curse = false;
         for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
             ItemStack stack = inventory.getItem(slot);
-            if (stack.isEmpty() || isRevealed(stack) || !hasCurse(stack)) {
+            if (!everything && seen[slot] == stack) {
+                continue;
+            }
+            seen[slot] = stack;
+            if (stack.isEmpty() || isRevealed(stack) || !hasCurse(stack) || isArmor(player, stack) && !isArmorSlot(inventory, slot)) {
+                continue;
+            }
+            boolean possession = Possession.has(player.level(), stack);
+            if (possession && player.level().getDifficulty() == Difficulty.PEACEFUL) {
+                // Left hidden and asleep, so it still tears free once the difficulty rises.
                 continue;
             }
             stack.set(ModComponents.CURSES_REVEALED.get(), Unit.INSTANCE);
             revealed++;
-            if (Possession.canPossess(player, stack)) {
+            if (possession) {
                 possessed.add(slot);
             } else {
                 curse = true;
@@ -172,6 +207,15 @@ public final class Curses {
                     .withStyle(ChatFormatting.DARK_PURPLE), true);
         }
         return revealed;
+    }
+
+    /** Whether {@code stack} is worn rather than held: armor, elytra, pumpkins, heads. */
+    private static boolean isArmor(Player player, ItemStack stack) {
+        return player.getEquipmentSlotForItem(stack).getType() == EquipmentSlot.Type.HUMANOID_ARMOR;
+    }
+
+    private static boolean isArmorSlot(Inventory inventory, int slot) {
+        return slot >= inventory.items.size() && slot < inventory.items.size() + inventory.armor.size();
     }
 
     // ---- Letting go ----
@@ -212,6 +256,32 @@ public final class Curses {
     @SubscribeEvent
     public static void onEntityInteractSpecific(PlayerInteractEvent.EntityInteractSpecific event) {
         refuseHandingOver(event, event.getEntity(), event.getHand(), event.getTarget());
+    }
+
+    /** A locked item can't be put into a block that holds items (see {@link #REFUSES_ITEMS}). */
+    @SubscribeEvent
+    public static void onRightClickBlock(PlayerInteractEvent.RightClickBlock event) {
+        Player player = event.getEntity();
+        if (!isLocked(player, event.getItemStack()) || !event.getLevel().getBlockState(event.getPos()).is(REFUSES_ITEMS)) {
+            return;
+        }
+        event.setCanceled(true);
+        event.setCancellationResult(InteractionResult.FAIL);
+        if (!player.level().isClientSide) {
+            refuse(player);
+        }
+    }
+
+    /**
+     * Nor can it be tucked into an item that holds others (a bundle), by clicking one onto the other in a menu: that
+     * goes through no slot, so the container mixins never see it.
+     */
+    @SubscribeEvent
+    public static void onItemStackedOnOther(ItemStackedOnOtherEvent event) {
+        Player player = event.getPlayer();
+        if (isLocked(player, event.getCarriedItem()) || isLocked(player, event.getStackedOnItem())) {
+            event.setCanceled(true);
+        }
     }
 
     /** A locked item can't be hung in a frame or handed to an armor stand or allay. */

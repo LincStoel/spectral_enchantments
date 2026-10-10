@@ -8,7 +8,7 @@
       "#spectral_enchantments:enchantable/animated",
       {
         "type": "neoforge:not",
-        "value": "#spectral_enchantments:enchantable/spectral_weapon_excluded"
+        "value": "#spectral_enchantments:enchantable/animated_excluded"
       }
     ]
   },
@@ -25,7 +25,6 @@
   },
   "anvil_cost": 8,
   "slots": [
-    "mainhand",
-    "offhand"
+    "any"
   ]
 }

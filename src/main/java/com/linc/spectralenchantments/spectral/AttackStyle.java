@@ -1,6 +1,6 @@
 package com.linc.spectralenchantments.spectral;
 
-/** How the spectral weapon swings; picked per attack from Better Combat data or the item's type. */
+/** How an Animated weapon swings; picked per attack from Better Combat data or the item's type. */
 public enum AttackStyle {
     /** Horizontal sweep across the target. */
     SLASH_H,

@@ -30,7 +30,7 @@ import net.neoforged.neoforge.network.PacketDistributor;
  * <ul>
  *   <li>While an armor stand's weapon is out, the stand's hand shows a faint ghost of it in place of the item.</li>
  *   <li>Clicking with the local player's deployed weapon in hand calls it back (see {@link AnimatedRecallPayload}).</li>
- *   <li>Tracks the local player's deployed weapon for the inventory overlay ({@link SpectralSlotOverlay}).</li>
+ *   <li>Tracks the local player's deployed weapon and hotbar companion for the inventory overlay ({@link SpectralSlotOverlay}).</li>
  * </ul>
  */
 final class AnimatedClient {
@@ -40,6 +40,7 @@ final class AnimatedClient {
     /** Armor stand id to the weapon it has sent out. */
     private static final Map<Integer, AnimatedWeaponEntity> GUARDS = new HashMap<>();
     private static WeakReference<AnimatedWeaponEntity> localDeployed = new WeakReference<>(null);
+    private static WeakReference<AnimatedWeaponEntity> localCompanion = new WeakReference<>(null);
     /** The deployed weapon a recall was last asked for, so a held button asks once. */
     private static int recallSentFor = -1;
 
@@ -61,13 +62,18 @@ final class AnimatedClient {
         }
         GUARDS.clear();
         AnimatedWeaponEntity deployed = null;
+        AnimatedWeaponEntity companion = null;
         if (mc.level != null && mc.player != null) {
             for (Entity entity : mc.level.entitiesForRendering()) {
                 if (!(entity instanceof AnimatedWeaponEntity weapon) || weapon.isRemoved()) {
                     continue;
                 }
                 Entity home = weapon.getHome();
-                if (weapon.isDeployed()) {
+                if (weapon.isCompanion()) {
+                    if (home == mc.player && !weapon.isReturning()) {
+                        companion = weapon;
+                    }
+                } else if (weapon.isDeployed()) {
                     if (home == mc.player && !weapon.isReturning()) {
                         deployed = weapon;
                     }
@@ -77,6 +83,7 @@ final class AnimatedClient {
             }
         }
         localDeployed = new WeakReference<>(deployed);
+        localCompanion = new WeakReference<>(companion);
         if (deployed == null) {
             recallSentFor = -1;
         } else if (mc.player != null && mc.screen == null && mc.options.keyAttack.isDown()
@@ -90,6 +97,13 @@ final class AnimatedClient {
     @Nullable
     static AnimatedWeaponEntity localDeployed() {
         AnimatedWeaponEntity weapon = localDeployed.get();
+        return weapon != null && !weapon.isRemoved() && !weapon.isReturning() ? weapon : null;
+    }
+
+    /** The local player's hotbar companion while it is out (not on its way home), or null. */
+    @Nullable
+    static AnimatedWeaponEntity localCompanion() {
+        AnimatedWeaponEntity weapon = localCompanion.get();
         return weapon != null && !weapon.isRemoved() && !weapon.isReturning() ? weapon : null;
     }
 

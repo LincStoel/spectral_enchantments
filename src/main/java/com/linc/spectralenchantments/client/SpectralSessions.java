@@ -36,6 +36,8 @@ public final class SpectralSessions {
         final boolean shovel;
         final float progressPerTick;
         final long startTick;
+        /** First of this session's crack-overlay breaker ids; see {@link #crackId}. */
+        final int crackBase;
         long endTick = -1;
         boolean broken;
         int lastStage = -1;
@@ -51,6 +53,7 @@ public final class SpectralSessions {
             this.shovel = tool.is(ItemTags.SHOVELS);
             this.progressPerTick = progressPerTick;
             this.startTick = ticks;
+            this.crackBase = allocateCrackIds(this.extras.size());
         }
 
         boolean active() {
@@ -63,14 +66,28 @@ public final class SpectralSessions {
 
         /** Crack-overlay breaker id for the i-th extra block; negative so it never collides with real entity ids. */
         int crackId(int i) {
-            return -(entityId * 64 + i + 1);
+            return crackBase - i;
         }
     }
 
     private static final Map<Integer, Session> SESSIONS = new HashMap<>();
     static long ticks;
+    /**
+     * Next free crack-overlay breaker id, counting down from -1. Each session takes a run of its own, so no two
+     * sessions (or two of one session's blocks) share one. Far Miner's ids sit down near Integer.MIN_VALUE.
+     */
+    private static int nextCrackId = -1;
 
     private SpectralSessions() {}
+
+    private static int allocateCrackIds(int count) {
+        if (nextCrackId - count < -(1 << 30)) {
+            nextCrackId = -1; // sessions from that long ago are gone
+        }
+        int base = nextCrackId;
+        nextCrackId -= count;
+        return base;
+    }
 
     static Collection<Session> all() {
         return SESSIONS.values();

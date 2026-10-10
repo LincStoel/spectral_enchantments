@@ -1,0 +1,51 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "spectral_enchantments:enchantment_enabled",
+      "enchantment": "possession_curse"
+    }
+  ],
+  "type": "neoforge:add_table",
+  "conditions": [
+    {
+      "condition": "minecraft:any_of",
+      "terms": [
+        {
+          "condition": "neoforge:loot_table_id",
+          "loot_table_id": "minecraft:chests/bastion_bridge"
+        },
+        {
+          "condition": "neoforge:loot_table_id",
+          "loot_table_id": "minecraft:chests/bastion_hoglin_stable"
+        },
+        {
+          "condition": "neoforge:loot_table_id",
+          "loot_table_id": "minecraft:chests/bastion_other"
+        },
+        {
+          "condition": "neoforge:loot_table_id",
+          "loot_table_id": "minecraft:chests/bastion_treasure"
+        },
+        {
+          "condition": "neoforge:loot_table_id",
+          "loot_table_id": "minecraft:chests/nether_bridge"
+        },
+        {
+          "condition": "neoforge:loot_table_id",
+          "loot_table_id": "minecraft:chests/ruined_portal"
+        }
+      ]
+    },
+    {
+      "condition": "minecraft:location_check",
+      "predicate": {
+        "dimension": "minecraft:the_nether"
+      }
+    },
+    {
+      "condition": "minecraft:random_chance",
+      "chance": 0.025
+    }
+  ],
+  "table": "spectral_enchantments:inject/nether_possession"
+}

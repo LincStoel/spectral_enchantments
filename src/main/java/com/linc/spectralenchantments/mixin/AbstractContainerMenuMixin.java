@@ -1,9 +1,12 @@
 package com.linc.spectralenchantments.mixin;
 
 import com.linc.spectralenchantments.curse.Curses;
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import javax.annotation.Nullable;
 import net.minecraft.core.NonNullList;
+import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ClickType;
@@ -13,8 +16,6 @@ import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * While a player is Cursed their cursed items stay with them: a menu click that would drop one, or put one in a
@@ -29,21 +30,21 @@ public abstract class AbstractContainerMenuMixin {
     @Shadow
     public abstract ItemStack getCarried();
 
-    @Inject(method = "doClick", at = @At("HEAD"), cancellable = true)
-    private void spectral_enchantments$beginClick(int slotId, int button, ClickType clickType, Player player, CallbackInfo ci) {
-        Curses.beginClick(player);
+    /** Marks the click's player for the checks below, cleared however the click ends (an exception included). */
+    @WrapMethod(method = "doClick")
+    private void spectral_enchantments$doClick(int slotId, int button, ClickType clickType, Player player, Operation<Void> original) {
         if (Curses.isCursed(player) && dropsLockedItem(slotId, clickType, player)) {
-            Curses.endClick();
             if (!player.level().isClientSide) {
                 Curses.refuse(player);
             }
-            ci.cancel();
+            return;
         }
-    }
-
-    @Inject(method = "doClick", at = @At("RETURN"))
-    private void spectral_enchantments$endClick(int slotId, int button, ClickType clickType, Player player, CallbackInfo ci) {
-        Curses.endClick();
+        Curses.beginClick(player);
+        try {
+            original.call(slotId, button, clickType, player);
+        } finally {
+            Curses.endClick();
+        }
     }
 
     /** Dropping the carried item outside the window, or throwing one from a slot. */
@@ -55,11 +56,27 @@ public abstract class AbstractContainerMenuMixin {
                 && Curses.isLocked(player, slots.get(slotId).getItem());
     }
 
-    /** Placing (click, swap, drag) and shift-click moves. */
+    /**
+     * Placing (click, swap, drag) and shift-click moves. A move outside a click (another mod's sorting or transfer
+     * button, handled on the server) is checked against the menu's own player, found through its inventory slots.
+     */
     @WrapOperation(method = {"doClick", "moveItemStackTo"}, at = @At(value = "INVOKE",
             target = "Lnet/minecraft/world/inventory/Slot;mayPlace(Lnet/minecraft/world/item/ItemStack;)Z"))
     private boolean spectral_enchantments$mayPlace(Slot slot, ItemStack stack, Operation<Boolean> original) {
         Player player = Curses.clickingPlayer();
+        if (player == null) {
+            player = menuPlayer();
+        }
         return original.call(slot, stack) && (player == null || Curses.mayPlace(player, slot, stack));
+    }
+
+    @Nullable
+    private Player menuPlayer() {
+        for (Slot slot : slots) {
+            if (slot.container instanceof Inventory inventory) {
+                return inventory.player;
+            }
+        }
+        return null;
     }
 }

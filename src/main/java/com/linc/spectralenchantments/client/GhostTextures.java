@@ -53,17 +53,27 @@ final class GhostTextures {
             this.slotV1 = slotV1;
         }
 
-        /** Maps a block-atlas UV of one of the model's sprites to the same texel in this texture. */
-        float[] remap(float u, float v) {
+        /** Which of the model's sprites a block-atlas UV falls in, or -1 for none. */
+        int sprite(float u, float v) {
             for (int i = 0; i < sprites.length; i++) {
                 TextureAtlasSprite s = sprites[i];
                 if (u >= s.getU0() - 1e-6f && u <= s.getU1() + 1e-6f && v >= s.getV0() - 1e-6f && v <= s.getV1() + 1e-6f) {
-                    float fu = (u - s.getU0()) / (s.getU1() - s.getU0());
-                    float fv = (v - s.getV0()) / (s.getV1() - s.getV0());
-                    return new float[] {slotU0[i] + fu * (slotU1[i] - slotU0[i]), fv * slotV1[i]};
+                    return i;
                 }
             }
-            return new float[] {u, v};
+            return -1;
+        }
+
+        /** The block-atlas U of sprite {@code i}, as the same texel's U in this texture. */
+        float u(int i, float u) {
+            TextureAtlasSprite s = sprites[i];
+            return slotU0[i] + (u - s.getU0()) / (s.getU1() - s.getU0()) * (slotU1[i] - slotU0[i]);
+        }
+
+        /** As {@link #u}, for V. */
+        float v(int i, float v) {
+            TextureAtlasSprite s = sprites[i];
+            return (v - s.getV0()) / (s.getV1() - s.getV0()) * slotV1[i];
         }
     }
 
@@ -142,7 +152,7 @@ final class GhostTextures {
     }
 
     /** Cool spectral white that keeps the sprite's shading (via luminance); darker texels are more see-through. */
-    private static int ghostPixel(int abgr) {
+    static int ghostPixel(int abgr) {
         int alpha = FastColor.ABGR32.alpha(abgr);
         if (alpha < 26) {
             return 0;

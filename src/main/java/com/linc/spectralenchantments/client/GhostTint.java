@@ -10,7 +10,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * The colour a ghost (Spectral Weapon or Broad Breaker) is drawn in: spectral white, or the colour of its enchantment
+ * The colour a ghost (Broad Breaker or the Animated slot overlay) is drawn in: spectral white, or the colour of its enchantment
  * glint when Quark's Color Runes have etched one onto the item.
  */
 public final class GhostTint {

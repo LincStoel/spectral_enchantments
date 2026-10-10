@@ -5,6 +5,7 @@ import com.linc.spectralenchantments.ModEnchantments;
 import com.linc.spectralenchantments.SpectralConfig;
 import com.linc.spectralenchantments.SpectralEnchantments;
 import com.mojang.authlib.GameProfile;
+import java.util.List;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -19,6 +20,7 @@ import net.minecraft.server.level.ClientInformation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.animal.Sheep;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.Item;
@@ -63,7 +65,13 @@ public final class FarMinerGatherGameTests {
     @GameTest(template = "empty")
     public static void farMinerRejectsBlocksBeyondRange(GameTestHelper helper) {
         helper.setBlock(FAR_TARGET, Blocks.STONE);
-        // About 14 blocks away: too far for level I (8), close enough for level III (16).
+        // About 14 blocks away: too far for level I (8), close enough for level III (16). The stands are outside the
+        // test's own space, behind the barriers the test framework walls it in with: clear the sight line through them.
+        for (int z = -10; z < 0; z++) {
+            for (int y = 1; y <= 3; y++) {
+                helper.setBlock(new BlockPos(4, y, z), Blocks.AIR);
+            }
+        }
         BlockPos stand = new BlockPos(4, 1, -6);
         helper.assertTrue(!FarMiner.start(farMiner(helper, stand, 1), helper.absolutePos(FAR_TARGET), Direction.NORTH),
                 "Level I should not reach 14 blocks");
@@ -166,6 +174,46 @@ public final class FarMinerGatherGameTests {
         sheep.hurt(player.damageSources().playerAttack(player), 1000f);
         helper.assertTrue(player.getInventory().countItem(Items.WHITE_WOOL) >= 1, "The sheep's wool should go straight to the inventory");
         helper.assertTrue(itemsOnGround(helper) == 0, "Nothing should drop on the ground");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void farMinerNeedsLineOfSight(GameTestHelper helper) {
+        helper.setBlock(FAR_TARGET, Blocks.STONE);
+        for (int x = 1; x <= 7; x++) {
+            for (int y = 1; y <= 4; y++) {
+                helper.setBlock(new BlockPos(x, y, 4), Blocks.STONE);
+            }
+        }
+        FakePlayer player = farMiner(helper, new BlockPos(4, 1, 0), 2);
+        helper.assertTrue(!FarMiner.start(player, helper.absolutePos(FAR_TARGET), Direction.NORTH), "A block behind a wall can't be Far Mined");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void gatherTakesBlockExperience(GameTestHelper helper) {
+        ServerPlayer player = gatherer(helper, Items.DIAMOND_PICKAXE);
+        BlockPos pos = new BlockPos(4, 2, 4);
+        helper.setBlock(pos, Blocks.DIAMOND_ORE);
+        drop(helper, player, pos);
+        List<ExperienceOrb> orbs = helper.getLevel().getEntitiesOfClass(ExperienceOrb.class, helper.getBounds());
+        helper.assertTrue(!orbs.isEmpty(), "Diamond ore's experience should be given");
+        for (ExperienceOrb orb : orbs) {
+            helper.assertTrue(orb.distanceTo(player) < 0.5, "The experience should be given at the player, not the block");
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void gatherTakesKillExperience(GameTestHelper helper) {
+        ServerPlayer player = gatherer(helper, Items.DIAMOND_SWORD);
+        Sheep sheep = helper.spawn(EntityType.SHEEP, new BlockPos(4, 2, 5));
+        sheep.hurt(player.damageSources().playerAttack(player), 1000f);
+        List<ExperienceOrb> orbs = helper.getLevel().getEntitiesOfClass(ExperienceOrb.class, helper.getBounds());
+        helper.assertTrue(!orbs.isEmpty(), "The kill's experience should be given");
+        for (ExperienceOrb orb : orbs) {
+            helper.assertTrue(orb.distanceTo(player) < 0.5, "The experience should be given at the player, not the sheep");
+        }
         helper.succeed();
     }
 

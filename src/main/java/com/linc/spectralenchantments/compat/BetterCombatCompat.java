@@ -7,16 +7,19 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModList;
 
 /**
  * Optional Better Combat integration, by reflection so Better Combat stays a soft dependency.
  *
- * <p>Reads the weapon's attack combo (hitbox shape, damage multiplier, upswing, swing sound) so the
- * spectral weapon slashes with slashing weapons and stabs with stabbing ones. Simply Swords describes
+ * <p>Reads the weapon's attack combo (hitbox shape, damage multiplier, upswing, swing sound) so an
+ * Animated weapon slashes with slashing weapons and stabs with stabbing ones. Simply Swords describes
  * its weapons through Better Combat's weapon_attributes data, so it is covered here too.
  */
 public final class BetterCombatCompat {
@@ -65,7 +68,23 @@ public final class BetterCombatCompat {
         SOUND_ID = soundId;
     }
 
+    /** Per item, whether Better Combat describes it: asked every tick for held items, so worth remembering. */
+    private static final Map<Item, Boolean> WEAPONS = new ConcurrentHashMap<>();
+
     private BetterCombatCompat() {}
+
+    /** Whether Better Combat would let a player swing this item (it describes an attack combo for it). */
+    public static boolean isWeapon(ItemStack stack) {
+        if (GET_ATTRIBUTES == null || stack.isEmpty()) {
+            return false;
+        }
+        return WEAPONS.computeIfAbsent(stack.getItem(), item -> attacks(stack) != null);
+    }
+
+    /** Better Combat reloads its weapon data with the data packs (and syncs it on joining a server). */
+    public static void clearCache() {
+        WEAPONS.clear();
+    }
 
     /** The weapon's Better Combat attack combo, or null if Better Combat is absent or doesn't know this item. */
     @Nullable

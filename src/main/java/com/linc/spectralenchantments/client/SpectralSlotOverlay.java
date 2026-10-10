@@ -1,40 +1,36 @@
 package com.linc.spectralenchantments.client;
 
+import com.linc.spectralenchantments.StackCooldowns;
 import com.linc.spectralenchantments.animated.AnimatedWeaponEntity;
-import com.linc.spectralenchantments.spectral.SpectralWeaponEntity;
 import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
-import java.lang.ref.WeakReference;
-import javax.annotation.Nullable;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.util.Mth;
-import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemDisplayContext;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.client.IItemDecorator;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterItemDecorationsEvent;
 
 /**
- * While the local player's spectral weapon (or deployed Animated weapon) is out, its item's slot icon (hotbar and
- * inventory) is washed with a ghostly overlay: the item drawn again over itself in its ghost colour, fading with
- * the spectral weapon.
+ * While the local player's Animated weapon is out, its item's slot icon (hotbar and inventory) is washed with a
+ * ghostly overlay: the item drawn again over itself in its ghost colour. A weapon fighting beside the player leaves
+ * the icon showing through; a deployed one, out of the player's hands until it comes back, hides it. A stack on its own
+ * cooldown (a recalled Animated weapon, Branch Finding) gets vanilla's cooldown sweep.
  */
 final class SpectralSlotOverlay {
-    /** How strongly the overlay covers the icon, 0-1 (scaled by the ghost's own maximum alpha). */
-    private static final float STRENGTH = 0.8f;
+    /** How strongly the overlay covers the icon of a weapon fighting beside the player, 0-1 (scaled by the ghost's own maximum alpha). */
+    private static final float COMPANION_STRENGTH = 0.8f;
     /** A deployed Animated weapon's icon is washed out completely. */
     private static final float DEPLOYED_STRENGTH = 1f;
-
-    private static WeakReference<SpectralWeaponEntity> localWeapon = new WeakReference<>(null);
 
     private SpectralSlotOverlay() {}
 
@@ -46,28 +42,6 @@ final class SpectralSlotOverlay {
         }
     }
 
-    /** Finds the local player's weapon once a tick, rather than per slot drawn. */
-    static void tick(ClientTickEvent.Post event) {
-        Minecraft mc = Minecraft.getInstance();
-        SpectralWeaponEntity found = null;
-        if (mc.level != null && mc.player != null) {
-            for (Entity entity : mc.level.entitiesForRendering()) {
-                if (entity instanceof SpectralWeaponEntity weapon && weapon.getOwner() == mc.player
-                        && (found == null || !weapon.isFading())) {
-                    found = weapon;
-                }
-            }
-        }
-        localWeapon = new WeakReference<>(found);
-    }
-
-    /** The local player's spectral weapon (possibly fading), or null when none is out. */
-    @Nullable
-    static SpectralWeaponEntity activeWeapon() {
-        SpectralWeaponEntity weapon = localWeapon.get();
-        return weapon != null && !weapon.isRemoved() ? weapon : null;
-    }
-
     private static boolean render(GuiGraphics graphics, Font font, ItemStack stack, int x, int y) {
         Minecraft mc = Minecraft.getInstance();
         Player player = mc.player;
@@ -75,17 +49,31 @@ final class SpectralSlotOverlay {
             return false;
         }
         float partialTick = mc.getTimer().getGameTimeDeltaPartialTick(true);
-        // The very stack in the weapon's slot, so a look-alike elsewhere in the inventory stays plain.
-        SpectralWeaponEntity weapon = activeWeapon();
-        if (weapon != null && stack == player.getInventory().getItem(weapon.getSlot())) {
-            float fade = Mth.lerp(partialTick, weapon.fadeO, weapon.fade);
-            return fade > 0f && drawGhost(graphics, mc, player, stack, x, y, fade * STRENGTH,
-                    GhostTint.of(stack, weapon.tickCount + partialTick));
+        boolean drawn = drawGhosts(graphics, mc, player, stack, x, y, partialTick);
+        return drawCooldown(graphics, mc, stack, x, y, partialTick) || drawn;
+    }
+
+    /** The sweep vanilla draws over an item on cooldown, for this stack's own cooldown ({@link StackCooldowns}). */
+    private static boolean drawCooldown(GuiGraphics graphics, Minecraft mc, ItemStack stack, int x, int y, float partialTick) {
+        float left = mc.level == null ? 0f : StackCooldowns.remaining(stack, mc.level, partialTick);
+        if (left <= 0f) {
+            return false;
         }
-        // A deployed Animated weapon is out of the player's hands until it comes back.
-        AnimatedWeaponEntity animated = AnimatedClient.localDeployed();
-        if (animated != null && stack == player.getInventory().getItem(animated.getSlot())) {
-            return drawGhost(graphics, mc, player, stack, x, y, DEPLOYED_STRENGTH, GhostTint.of(stack, animated.tickCount + partialTick));
+        int top = y + Mth.floor(16f * (1f - left));
+        graphics.fill(RenderType.guiOverlay(), x, top, x + 16, top + Mth.ceil(16f * left), Integer.MAX_VALUE);
+        return true;
+    }
+
+    private static boolean drawGhosts(GuiGraphics graphics, Minecraft mc, Player player, ItemStack stack, int x, int y, float partialTick) {
+        // The very stack in the weapon's slot, so a look-alike elsewhere in the inventory stays plain.
+        AnimatedWeaponEntity companion = AnimatedClient.localCompanion();
+        if (companion != null && stack == player.getInventory().getItem(companion.getSlot())) {
+            return drawGhost(graphics, mc, player, stack, x, y, COMPANION_STRENGTH, GhostTint.of(stack, companion.tickCount + partialTick));
+        }
+        // A deployed weapon is out of the player's hands until it comes back.
+        AnimatedWeaponEntity deployed = AnimatedClient.localDeployed();
+        if (deployed != null && stack == player.getInventory().getItem(deployed.getSlot())) {
+            return drawGhost(graphics, mc, player, stack, x, y, DEPLOYED_STRENGTH, GhostTint.of(stack, deployed.tickCount + partialTick));
         }
         return false;
     }

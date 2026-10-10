@@ -83,8 +83,13 @@ final class GhostItemDraw {
 
         @Override
         public VertexConsumer setUv(float u, float v) {
-            float[] uv = ghost.remap(u, v);
-            delegate.setUv(uv[0], uv[1]);
+            // Per vertex, so nothing allocated here.
+            int sprite = ghost.sprite(u, v);
+            if (sprite < 0) {
+                delegate.setUv(u, v);
+            } else {
+                delegate.setUv(ghost.u(sprite, u), ghost.v(sprite, v));
+            }
             return this;
         }
 

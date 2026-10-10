@@ -19,7 +19,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.enchanting.GetEnchantmentLevelEvent;
 
 /**
- * One hit from a weapon fighting on its own (Spectral Weapon, Animated): damage with the item's enchantments,
+ * One hit from a weapon fighting on its own (Animated): damage with the item's enchantments,
  * knockback, post-attack effects, and durability worn off the real item, so Unbreaking (and Mending) apply.
  */
 public final class WeaponStrike {

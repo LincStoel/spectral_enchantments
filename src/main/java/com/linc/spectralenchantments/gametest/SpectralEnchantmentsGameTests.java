@@ -5,6 +5,9 @@ import com.linc.spectralenchantments.SpectralEnchantments;
 import com.linc.spectralenchantments.MiningState;
 import com.linc.spectralenchantments.ModEnchantments;
 import com.linc.spectralenchantments.SpectralConfig;
+import com.linc.spectralenchantments.network.SpectralMiningPayload;
+import io.netty.buffer.Unpooled;
+import java.util.ArrayList;
 import com.mojang.authlib.GameProfile;
 import java.util.HashSet;
 import java.util.List;
@@ -16,6 +19,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
+import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.protocol.game.ServerboundPlayerActionPacket;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.tags.EnchantmentTags;
@@ -175,6 +179,23 @@ public final class SpectralEnchantmentsGameTests {
         helper.succeed();
     }
 
+    /** The area packet reads back exactly what was written, even for the widest area (it once misread past 64 blocks). */
+    @GameTest(template = "empty")
+    public static void areaPacketRoundTrips(GameTestHelper helper) {
+        List<BlockPos> extras = new ArrayList<>();
+        for (int i = 0; i < SpectralConfig.MAX_BREAKER_EXTRAS; i++) {
+            extras.add(new BlockPos(i % 15, i / 15, -i));
+        }
+        RegistryFriendlyByteBuf buf = new RegistryFriendlyByteBuf(Unpooled.buffer(), helper.getLevel().registryAccess());
+        SpectralMiningPayload.STREAM_CODEC.encode(buf, SpectralMiningPayload.start(7, BlockPos.ZERO, Direction.UP, extras,
+                new ItemStack(Items.DIAMOND_PICKAXE), 0.1f));
+        SpectralMiningPayload read = SpectralMiningPayload.STREAM_CODEC.decode(buf);
+        helper.assertTrue(read.extras().equals(extras), "Every block should come back, in order");
+        helper.assertTrue(read.tool().is(Items.DIAMOND_PICKAXE), "The tool should come back after them");
+        helper.assertTrue(buf.readableBytes() == 0, "Nothing should be left unread");
+        helper.succeed();
+    }
+
     private static void fillWall(GameTestHelper helper, Block block, int level) {
         for (int dx = -level; dx <= level; dx++) {
             for (int dy = -1; dy <= 2 * level - 1; dy++) {
@@ -187,7 +208,6 @@ public final class SpectralEnchantmentsGameTests {
     @GameTest(template = "empty")
     public static void configSwitchesControlAvailability(GameTestHelper helper) {
         checkAvailability(helper, ModEnchantments.BROAD_BREAKER, SpectralConfig.broadBreakerEnabled(), Items.DIAMOND_PICKAXE);
-        checkAvailability(helper, ModEnchantments.SPECTRAL_WEAPON, SpectralConfig.spectralWeaponEnabled(), Items.DIAMOND_SWORD);
         checkAvailability(helper, ModEnchantments.FAR_MINER, SpectralConfig.farMinerEnabled(), Items.DIAMOND_PICKAXE);
         checkAvailability(helper, ModEnchantments.GATHER, SpectralConfig.gatherEnabled(), Items.DIAMOND_SWORD);
         checkAvailability(helper, ModEnchantments.BRANCH_FINDING, SpectralConfig.branchFindingEnabled(), Items.IRON_HOE);
@@ -200,6 +220,8 @@ public final class SpectralEnchantmentsGameTests {
                 key.location() + " should " + (enabled ? "" : "not ") + "be in the enchanting table");
         helper.assertTrue(new ItemStack(tool).supportsEnchantment(holder) == enabled,
                 key.location() + " should " + (enabled ? "" : "not ") + "apply to " + tool);
+        helper.assertTrue(holder.is(ModEnchantments.DISABLED) != enabled,
+                key.location() + " should " + (enabled ? "not " : "") + "be in the synced disabled tag");
     }
 
     private static FakePlayer player(GameTestHelper helper, Item tool, int enchantLevel) {

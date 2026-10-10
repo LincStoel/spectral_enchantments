@@ -1,0 +1,21 @@
+{
+  "description": {
+    "translate": "enchantment.spectral_enchantments.doppelganger"
+  },
+  "supported_items": "#spectral_enchantments:enchantable/doppelganger",
+  "exclusive_set": "#spectral_enchantments:exclusive_set/doppelganger",
+  "weight": 2,
+  "max_level": 1,
+  "min_cost": {
+    "base": 20,
+    "per_level_above_first": 25
+  },
+  "max_cost": {
+    "base": 70,
+    "per_level_above_first": 25
+  },
+  "anvil_cost": 4,
+  "slots": [
+    "chest"
+  ]
+}

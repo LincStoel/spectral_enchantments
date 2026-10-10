@@ -18,14 +18,15 @@ public record EnchantmentEnabledCondition(Which enchantment) implements IConditi
 
     public enum Which implements StringRepresentable {
         BROAD_BREAKER("broad_breaker"),
-        SPECTRAL_WEAPON("spectral_weapon"),
         FAR_MINER("far_miner"),
         GATHER("gather"),
         BRANCH_FINDING("branch_finding"),
         ANIMATED("animated"),
         CATAPULTING("catapulting"),
         EXPLOSIVE_BOLTS("explosive_bolts"),
-        POSSESSION_CURSE("possession_curse");
+        DOPPELGANGER("doppelganger"),
+        POSSESSION_CURSE("possession_curse"),
+        HAUNTING_CURSE("haunting_curse");
 
         static final Codec<Which> CODEC = StringRepresentable.fromEnum(Which::values);
 
@@ -45,14 +46,15 @@ public record EnchantmentEnabledCondition(Which enchantment) implements IConditi
     public boolean test(IContext context) {
         return switch (enchantment) {
             case BROAD_BREAKER -> SpectralConfig.broadBreakerEnabled();
-            case SPECTRAL_WEAPON -> SpectralConfig.spectralWeaponEnabled();
             case FAR_MINER -> SpectralConfig.farMinerEnabled();
             case GATHER -> SpectralConfig.gatherEnabled();
             case BRANCH_FINDING -> SpectralConfig.branchFindingEnabled();
             case ANIMATED -> SpectralConfig.animatedEnabled();
             case CATAPULTING -> SpectralConfig.catapultingEnabled();
             case EXPLOSIVE_BOLTS -> SpectralConfig.explosiveBoltsEnabled();
+            case DOPPELGANGER -> SpectralConfig.doppelgangerEnabled();
             case POSSESSION_CURSE -> SpectralConfig.possessionCurseEnabled();
+            case HAUNTING_CURSE -> SpectralConfig.hauntingCurseEnabled();
         };
     }
 

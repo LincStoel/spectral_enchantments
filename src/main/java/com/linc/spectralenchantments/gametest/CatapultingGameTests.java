@@ -1,5 +1,6 @@
 package com.linc.spectralenchantments.gametest;
 
+import com.linc.spectralenchantments.ModEffects;
 import com.linc.spectralenchantments.ModEnchantments;
 import com.linc.spectralenchantments.SpectralEnchantments;
 import com.linc.spectralenchantments.animated.AnimatedWeaponEntity;
@@ -19,6 +20,7 @@ import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.tags.EnchantmentTags;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.animal.Sheep;
@@ -360,6 +362,53 @@ public final class CatapultingGameTests {
                     "Missing Ars Nouveau recipe catapulting_1");
         }
         helper.succeed();
+    }
+
+    @GameTest(template = "empty")
+    public static void lockedCursedItemIsNotFired(GameTestHelper helper) {
+        ItemStack cursed = new ItemStack(Items.IRON_SWORD);
+        cursed.enchant(holder(helper, Enchantments.VANISHING_CURSE), 1);
+        FakePlayer player = shooter(helper, cursed);
+        helper.assertTrue(Catapulting.kindFor(player, player.getMainHandItem()) == Catapulting.Kind.WEAPON, "Not Cursed: it's fired");
+        player.addEffect(new MobEffectInstance(ModEffects.CURSED, 200));
+        helper.assertTrue(Catapulting.kindFor(player, player.getMainHandItem()) == null, "While Cursed it stays in hand");
+        helper.succeed();
+    }
+
+    /** With nobody to answer for it (the shooter gone mid-flight), a fired bucket changes nothing: it just drops. */
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void lavaWithoutAShooterIsNotPoured(GameTestHelper helper) {
+        floor(helper);
+        CatapultedItem item = dropWithoutShooter(helper, Items.LAVA_BUCKET);
+        helper.succeedWhen(() -> {
+            helper.assertTrue(item.isRemoved(), "Not landed yet");
+            helper.assertBlockNotPresent(Blocks.LAVA, LANDING);
+            helper.assertTrue(helper.getLevel().getEntitiesOfClass(ItemEntity.class, area(helper)).stream()
+                    .anyMatch(drop -> drop.getItem().is(Items.LAVA_BUCKET)), "The lava bucket drops instead");
+        });
+    }
+
+    @GameTest(template = "empty", timeoutTicks = 60)
+    public static void crystalWithoutAShooterDoesNotExplode(GameTestHelper helper) {
+        floor(helper);
+        CatapultedItem item = dropWithoutShooter(helper, Items.END_CRYSTAL);
+        helper.succeedWhen(() -> {
+            helper.assertTrue(item.isRemoved(), "Not landed yet");
+            helper.assertBlockPresent(Blocks.STONE, LANDING.below());
+            helper.assertTrue(helper.getLevel().getEntitiesOfClass(ItemEntity.class, area(helper)).stream()
+                    .anyMatch(drop -> drop.getItem().is(Items.END_CRYSTAL)), "The crystal drops instead");
+        });
+    }
+
+    /** {@code item} falling onto the landing spot, fired by a zombie (so no player shot it). */
+    private static CatapultedItem dropWithoutShooter(GameTestHelper helper, Item item) {
+        Zombie zombie = helper.spawnWithNoFreeWill(EntityType.ZOMBIE, new BlockPos(1, 2, 1));
+        CatapultedItem projectile = new CatapultedItem(helper.getLevel(), zombie, new ItemStack(item), 1f);
+        BlockPos above = helper.absolutePos(LANDING.above(4));
+        projectile.setPos(above.getX() + 0.5, above.getY(), above.getZ() + 0.5);
+        projectile.setDeltaMovement(0, -1.5, 0);
+        helper.getLevel().addFreshEntity(projectile);
+        return projectile;
     }
 
     private static Catapulting.Kind kind(FakePlayer player, Item item) {

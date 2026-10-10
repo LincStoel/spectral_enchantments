@@ -7,7 +7,7 @@ import com.mojang.math.Axis;
 import net.minecraft.util.Mth;
 
 /**
- * How a weapon fighting on its own (Spectral Weapon, Animated) is posed and swung. The weapon sits in a frame
+ * How a weapon fighting on its own (Animated) is posed and swung. The weapon sits in a frame
  * facing along its yaw (+Z forward, +Y up, +X to its left) and is held by an invisible hand at its grip:
  * pitch 0 points the tip up, 90 points it forward.
  */

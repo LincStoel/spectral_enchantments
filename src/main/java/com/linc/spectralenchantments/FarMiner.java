@@ -21,11 +21,13 @@ import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.LevelEvent;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
@@ -67,17 +69,16 @@ public final class FarMiner {
     }
 
     private static final Map<ServerPlayer, Session> SESSIONS = Collections.synchronizedMap(new WeakHashMap<>());
+    /** Each player's start requests: the game time, and how many came in at it. */
+    private static final Map<ServerPlayer, long[]> STARTS = Collections.synchronizedMap(new WeakHashMap<>());
+    private static final int MAX_STARTS_PER_TICK = 4;
+    /** How far in from the face's edges the corner sight lines aim. */
+    private static final double SIGHT_INSET = 0.2;
 
     private FarMiner() {}
 
     public static int getLevel(Player player, ItemStack stack) {
-        if (stack.isEmpty() || !SpectralConfig.farMinerEnabled() || stack.is(EXCLUDED)) {
-            return 0;
-        }
-        return player.level().registryAccess().registry(Registries.ENCHANTMENT)
-                .flatMap(registry -> registry.getHolder(ModEnchantments.FAR_MINER))
-                .map(holder -> EnchantmentHelper.getItemEnchantmentLevel(holder, stack))
-                .orElse(0);
+        return stack.is(EXCLUDED) ? 0 : ModEnchantments.level(player.level(), ModEnchantments.FAR_MINER, stack);
     }
 
     /** The main-hand tool's Far Miner level, or 0 when the player may not Far Mine right now (sneaking turns it off). */
@@ -103,6 +104,19 @@ public final class FarMiner {
 
     /** Starts mining {@code pos}; returns false (and tells the client) if the request is not allowed. */
     public static boolean start(ServerPlayer player, BlockPos pos, Direction face) {
+        Session current = SESSIONS.get(player);
+        if (current != null && current.pos.equals(pos)) {
+            return true; // already mining it: a repeat request changes nothing
+        }
+        long now = player.serverLevel().getGameTime();
+        long[] starts = STARTS.computeIfAbsent(player, p -> new long[2]);
+        if (starts[0] != now) {
+            starts[0] = now;
+            starts[1] = 0;
+        }
+        if (++starts[1] > MAX_STARTS_PER_TICK) {
+            return false; // more than a real client ever sends: ignored, so it can't be used to flood other players
+        }
         cancel(player);
         ServerLevel level = player.serverLevel();
         int enchantLevel = getActiveLevel(player);
@@ -113,6 +127,7 @@ public final class FarMiner {
                 || state.isAir()
                 || state.getDestroySpeed(level, pos) < 0
                 || !inRange(player, pos, enchantLevel)
+                || !canSee(player, level, pos, face)
                 || !level.getWorldBorder().isWithinBounds(pos)
                 || !level.mayInteract(player, pos)
                 || player.blockActionRestricted(level, pos, player.gameMode.getGameModeForPlayer())
@@ -144,6 +159,33 @@ public final class FarMiner {
         Vec3 nearest = new Vec3(Mth.clamp(eye.x, pos.getX(), pos.getX() + 1),
                 Mth.clamp(eye.y, pos.getY(), pos.getY() + 1), Mth.clamp(eye.z, pos.getZ(), pos.getZ() + 1));
         return eye.distanceToSqr(nearest) <= max * max;
+    }
+
+    /**
+     * Whether the player can see the face they asked to mine: a sight line from their eyes to its middle, or to any
+     * of four points near its corners, reaches the block without anything else in the way. The client picks the block
+     * it looks at; this keeps a modified one from mining through walls.
+     */
+    private static boolean canSee(ServerPlayer player, ServerLevel level, BlockPos pos, Direction face) {
+        Vec3 eye = player.getEyePosition();
+        Vec3 center = Vec3.atCenterOf(pos).add(Vec3.atLowerCornerOf(face.getNormal()).scale(0.5));
+        Direction.Axis axis = face.getAxis();
+        double reach = 0.5 - SIGHT_INSET;
+        double[][] offsets = {{0, 0}, {reach, reach}, {reach, -reach}, {-reach, reach}, {-reach, -reach}};
+        for (double[] offset : offsets) {
+            Vec3 target = switch (axis) {
+                case X -> center.add(0, offset[0], offset[1]);
+                case Y -> center.add(offset[0], 0, offset[1]);
+                case Z -> center.add(offset[0], offset[1], 0);
+            };
+            // Aim just inside the face, so the ray ends in the block itself.
+            target = target.subtract(Vec3.atLowerCornerOf(face.getNormal()).scale(0.01));
+            BlockHitResult hit = level.clip(new ClipContext(eye, target, ClipContext.Block.OUTLINE, ClipContext.Fluid.NONE, player));
+            if (hit.getType() == HitResult.Type.MISS || hit.getBlockPos().equals(pos)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @SubscribeEvent

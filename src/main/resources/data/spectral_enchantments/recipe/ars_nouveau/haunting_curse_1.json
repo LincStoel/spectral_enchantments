@@ -1,0 +1,36 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "ars_nouveau"
+    },
+    {
+      "type": "spectral_enchantments:enchantment_enabled",
+      "enchantment": "haunting_curse"
+    }
+  ],
+  "type": "ars_nouveau:enchantment",
+  "enchantment": "spectral_enchantments:haunting_curse",
+  "level": 1,
+  "pedestalItems": [
+    {
+      "item": "ars_nouveau:conjuration_essence"
+    },
+    {
+      "item": "ars_nouveau:conjuration_essence"
+    },
+    {
+      "item": "ars_nouveau:abjuration_essence"
+    },
+    {
+      "item": "minecraft:phantom_membrane"
+    },
+    {
+      "item": "minecraft:ghast_tear"
+    },
+    {
+      "item": "minecraft:soul_lantern"
+    }
+  ],
+  "sourceCost": 2000
+}

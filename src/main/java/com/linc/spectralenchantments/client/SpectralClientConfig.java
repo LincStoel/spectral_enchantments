@@ -11,6 +11,7 @@ public final class SpectralClientConfig {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
         SHADER_BRIGHTNESS = builder
                 .comment("Brightness of the ghost tools and weapons while an Iris shaderpack is in use, from 0 (black) to 1 (as without shaders).")
+                .translation("spectral_enchantments.configuration.shaderBrightness")
                 .defineInRange("shaderBrightness", 0.5, 0.0, 1.0);
         SPEC = builder.build();
     }

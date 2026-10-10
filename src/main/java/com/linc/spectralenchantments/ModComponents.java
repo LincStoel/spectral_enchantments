@@ -16,5 +16,10 @@ public final class ModComponents {
                     .persistent(Unit.CODEC)
                     .networkSynchronized(StreamCodec.unit(Unit.INSTANCE)));
 
+    /** A cooldown on this very stack; see {@link StackCooldowns}. Synced, never saved. */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<StackCooldowns.Cooldown>> COOLDOWN =
+            COMPONENTS.registerComponentType("cooldown", builder -> builder
+                    .networkSynchronized(StackCooldowns.Cooldown.STREAM_CODEC));
+
     private ModComponents() {}
 }

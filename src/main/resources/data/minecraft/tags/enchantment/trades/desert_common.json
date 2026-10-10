@@ -1,0 +1,7 @@
+{
+  "replace": false,
+  "values": [
+    "#spectral_enchantments:non_treasure/explosive_bolts",
+    "#spectral_enchantments:treasure_only/explosive_bolts"
+  ]
+}

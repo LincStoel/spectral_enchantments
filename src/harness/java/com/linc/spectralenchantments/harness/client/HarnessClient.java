@@ -13,10 +13,9 @@ import javax.annotation.Nullable;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
-import com.linc.spectralenchantments.client.GhostTint;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import com.linc.spectralenchantments.spectral.SpectralWeaponEntity;
+import com.linc.spectralenchantments.animated.AnimatedWeaponEntity;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
@@ -34,7 +33,7 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
  *   <li>{@code slot n}: select hotbar slot n</li>
  *   <li>{@code move walk|sprint|stop}: hold forward (and sprint)</li>
  *   <li>{@code shot name}: screenshot to screenshots/name.png</li>
- *   <li>{@code probe label}: append Broad Breaker / Spectral Weapon / Iris client state to harness-probe.txt</li>
+ *   <li>{@code probe label}: append Broad Breaker / Animated companion / Iris client state to harness-probe.txt</li>
  * </ul>
  * Everything notable is appended to harness-events.txt in the game directory.
  */
@@ -141,7 +140,7 @@ public final class HarnessClient {
         out.append(" | irisPackInUse=").append(irisCall("isShaderPackInUse"));
         out.append(" | spectralSessions=").append(sessionCount());
         out.append(" | spectralCracks=").append(spectralCrackCount(mc));
-        out.append(" | spectralWeapons=").append(spectralWeapons(mc));
+        out.append(" | companions=").append(companions(mc));
         if (mc.gameMode != null) {
             out.append(" | destroying=").append(mc.gameMode.isDestroying());
         }
@@ -163,21 +162,19 @@ public final class HarnessClient {
         }
     }
 
-    /** Spectral Weapon ghosts this client knows about: item, slot, side, target, fade, engage and swing state. */
-    private static String spectralWeapons(Minecraft mc) {
+    /** Animated weapons fighting beside their players that this client knows about: item, slot, side, target, engage and swing state. */
+    private static String companions(Minecraft mc) {
         if (mc.level == null) {
             return "[]";
         }
         StringBuilder out = new StringBuilder("[");
         for (Entity entity : mc.level.entitiesForRendering()) {
-            if (entity instanceof SpectralWeaponEntity weapon) {
+            if (entity instanceof AnimatedWeaponEntity weapon && weapon.isCompanion()) {
                 Player owner = weapon.getOwner();
                 out.append(owner != null ? owner.getName().getString() : "?").append(':').append(weapon.getItem().getItem())
                         .append(" slot=").append(weapon.getSlot())
                         .append(owner != null ? sideOf(owner, weapon) : " ?")
                         .append(" target=").append(weapon.hasTarget())
-                        .append(" tint=").append(String.format("%06X", GhostTint.of(weapon.getItem(), 0f)))
-                        .append(" fade=").append(String.format("%.2f", weapon.fade))
                         .append(" engage=").append(String.format("%.2f", weapon.engage))
                         .append(" tilt=").append(String.format("%.1f", weapon.tilt))
                         .append(" style=").append(weapon.attackStyle)

@@ -86,16 +86,28 @@ public final class CommonEvents {
         if (face == null) {
             return;
         }
-        List<BlockPos> extras = AreaHelper.getExtraBlocks(player, origin, face);
-        if (extras.isEmpty()) {
+        AreaHelper.Area area = AreaHelper.area(player, origin, face);
+        if (area.extras.isEmpty()) {
             return;
         }
+        if (Float.isNaN(area.slowestRatio)) {
+            area.slowestRatio = slowestRatio(player, event.getState(), origin, area.extras);
+        }
+        if (area.slowestRatio < 1f) {
+            event.setNewSpeed(event.getNewSpeed() * area.slowestRatio);
+        }
+    }
 
+    /**
+     * The slowest block's break speed over the origin's. Break speed is linear in every player-side factor (tool,
+     * Efficiency, Haste, airborne, underwater), so the ratio holds while those change.
+     */
+    private static float slowestRatio(Player player, BlockState originState, BlockPos origin, List<BlockPos> extras) {
         float self;
         float slowest;
         MiningState.CALCULATING_SPEED.set(true);
         try {
-            self = event.getState().getDestroyProgress(player, player.level(), origin);
+            self = originState.getDestroyProgress(player, player.level(), origin);
             slowest = self;
             for (BlockPos pos : extras) {
                 slowest = Math.min(slowest, player.level().getBlockState(pos).getDestroyProgress(player, player.level(), pos));
@@ -103,9 +115,7 @@ public final class CommonEvents {
         } finally {
             MiningState.CALCULATING_SPEED.set(false);
         }
-        if (self > 0 && slowest < self) {
-            event.setNewSpeed(event.getNewSpeed() * (slowest / self));
-        }
+        return self > 0 && slowest < self ? slowest / self : 1f;
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)

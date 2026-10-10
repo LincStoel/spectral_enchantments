@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "#spectral_enchantments:non_treasure/possession_curse",
+    "#spectral_enchantments:treasure_only/possession_curse",
+    "#spectral_enchantments:non_treasure/haunting_curse",
+    "#spectral_enchantments:treasure_only/haunting_curse"
+  ]
+}

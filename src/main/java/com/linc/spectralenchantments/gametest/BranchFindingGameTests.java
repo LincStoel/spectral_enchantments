@@ -1,5 +1,6 @@
 package com.linc.spectralenchantments.gametest;
 
+import com.linc.spectralenchantments.StackCooldowns;
 import com.linc.spectralenchantments.BranchFinding;
 import com.linc.spectralenchantments.ModEnchantments;
 import com.linc.spectralenchantments.SpectralEnchantments;
@@ -62,7 +63,8 @@ public final class BranchFindingGameTests {
         helper.assertTrue(shears.getDamageValue() == 0, "Using it on stone should cost nothing");
         helper.assertTrue(rightClick(helper, player, CANOPY_TOP), "Using it on leaves should be handled");
         helper.assertTrue(shears.getDamageValue() == 1, "A use should cost 1 durability, cost " + shears.getDamageValue());
-        helper.assertTrue(player.getCooldowns().isOnCooldown(Items.SHEARS), "The shears should be on cooldown");
+        helper.assertTrue(StackCooldowns.isActive(player.getMainHandItem(), player.level()), "The shears should be on cooldown");
+        helper.assertFalse(player.getCooldowns().isOnCooldown(Items.SHEARS), "Only these shears: other pairs stay free");
         rightClick(helper, player, CANOPY_TOP);
         helper.assertTrue(shears.getDamageValue() == 1, "A use during the cooldown should cost nothing");
         helper.succeed();

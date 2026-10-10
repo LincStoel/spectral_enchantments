@@ -26,22 +26,6 @@
           "min_inclusive": 0,
           "max_inclusive": 2147483647
         },
-        "directory": "overlay_disable_spectral_weapon",
-        "neoforge:conditions": [
-          {
-            "type": "neoforge:not",
-            "value": {
-              "type": "spectral_enchantments:enchantment_enabled",
-              "enchantment": "spectral_weapon"
-            }
-          }
-        ]
-      },
-      {
-        "formats": {
-          "min_inclusive": 0,
-          "max_inclusive": 2147483647
-        },
         "directory": "overlay_disable_far_miner",
         "neoforge:conditions": [
           {
@@ -111,19 +95,6 @@
           {
             "type": "spectral_enchantments:enchantment_treasure_only",
             "enchantment": "broad_breaker"
-          }
-        ]
-      },
-      {
-        "formats": {
-          "min_inclusive": 0,
-          "max_inclusive": 2147483647
-        },
-        "directory": "overlay_treasure_spectral_weapon",
-        "neoforge:conditions": [
-          {
-            "type": "spectral_enchantments:enchantment_treasure_only",
-            "enchantment": "spectral_weapon"
           }
         ]
       },
@@ -263,6 +234,64 @@
           {
             "type": "spectral_enchantments:enchantment_treasure_only",
             "enchantment": "possession_curse"
+          }
+        ]
+      },
+      {
+        "formats": {
+          "min_inclusive": 0,
+          "max_inclusive": 2147483647
+        },
+        "directory": "overlay_disable_doppelganger",
+        "neoforge:conditions": [
+          {
+            "type": "neoforge:not",
+            "value": {
+              "type": "spectral_enchantments:enchantment_enabled",
+              "enchantment": "doppelganger"
+            }
+          }
+        ]
+      },
+      {
+        "formats": {
+          "min_inclusive": 0,
+          "max_inclusive": 2147483647
+        },
+        "directory": "overlay_treasure_doppelganger",
+        "neoforge:conditions": [
+          {
+            "type": "spectral_enchantments:enchantment_treasure_only",
+            "enchantment": "doppelganger"
+          }
+        ]
+      },
+      {
+        "formats": {
+          "min_inclusive": 0,
+          "max_inclusive": 2147483647
+        },
+        "directory": "overlay_disable_haunting_curse",
+        "neoforge:conditions": [
+          {
+            "type": "neoforge:not",
+            "value": {
+              "type": "spectral_enchantments:enchantment_enabled",
+              "enchantment": "haunting_curse"
+            }
+          }
+        ]
+      },
+      {
+        "formats": {
+          "min_inclusive": 0,
+          "max_inclusive": 2147483647
+        },
+        "directory": "overlay_treasure_haunting_curse",
+        "neoforge:conditions": [
+          {
+            "type": "spectral_enchantments:enchantment_treasure_only",
+            "enchantment": "haunting_curse"
           }
         ]
       }

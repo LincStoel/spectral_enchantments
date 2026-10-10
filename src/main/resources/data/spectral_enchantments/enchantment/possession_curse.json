@@ -8,7 +8,7 @@
       "#spectral_enchantments:enchantable/possession_curse",
       {
         "type": "neoforge:not",
-        "value": "#spectral_enchantments:enchantable/spectral_weapon_excluded"
+        "value": "#spectral_enchantments:enchantable/animated_excluded"
       }
     ]
   },

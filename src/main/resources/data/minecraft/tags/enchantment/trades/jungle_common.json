@@ -1,0 +1,7 @@
+{
+  "replace": false,
+  "values": [
+    "#spectral_enchantments:non_treasure/branch_finding",
+    "#spectral_enchantments:treasure_only/branch_finding"
+  ]
+}

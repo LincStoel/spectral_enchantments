@@ -5,7 +5,8 @@ import com.linc.spectralenchantments.SpectralConfig;
 import com.linc.spectralenchantments.SpectralEnchantments;
 import com.linc.spectralenchantments.animated.AnimatedManager;
 import com.linc.spectralenchantments.compat.SableCompat;
-import com.linc.spectralenchantments.spectral.SpectralWeapons;
+import com.linc.spectralenchantments.curse.Curses;
+import com.linc.spectralenchantments.animated.Animated;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -69,7 +70,7 @@ import net.neoforged.neoforge.event.entity.player.ArrowLooseEvent;
  * the vanilla shot is cancelled and the item launched here instead.
  */
 public final class Catapulting {
-    /** Fired as weapons, besides anything Spectral Weapon counts as one (and so anything Better Combat swings). */
+    /** Fired as weapons, besides anything Animated counts as one (and so anything Better Combat swings). */
     public static final TagKey<Item> WEAPONS = TagKey.create(Registries.ITEM, SpectralEnchantments.id("catapulting/weapons"));
     /** Thrown the way they are by hand. */
     public static final TagKey<Item> THROWABLES = TagKey.create(Registries.ITEM, SpectralEnchantments.id("catapulting/throwables"));
@@ -91,13 +92,7 @@ public final class Catapulting {
     private Catapulting() {}
 
     public static boolean has(Level level, ItemStack bow) {
-        if (bow.isEmpty() || !SpectralConfig.catapultingEnabled()) {
-            return false;
-        }
-        return level.registryAccess().registry(Registries.ENCHANTMENT)
-                .flatMap(registry -> registry.getHolder(ModEnchantments.CATAPULTING))
-                .map(holder -> EnchantmentHelper.getItemEnchantmentLevel(holder, bow) > 0)
-                .orElse(false);
+        return ModEnchantments.has(level, ModEnchantments.CATAPULTING, bow);
     }
 
     /** What firing the player's off-hand item from {@code bow} would do, or null if the bow shoots normally. */
@@ -107,7 +102,8 @@ public final class Catapulting {
             return null;
         }
         ItemStack ammo = player.getOffhandItem();
-        if (ammo.isEmpty() || ammo.is(EXCLUDED) || bowItem.getSupportedHeldProjectiles(bow).test(ammo)
+        // A cursed item the Cursed effect holds on to stays in hand; the bow shoots arrows as usual.
+        if (ammo.isEmpty() || ammo.is(EXCLUDED) || Curses.isLocked(player, ammo) || bowItem.getSupportedHeldProjectiles(bow).test(ammo)
                 || AnimatedManager.isDeployedInHand(player, InteractionHand.OFF_HAND)) {
             return null;
         }
@@ -135,7 +131,7 @@ public final class Catapulting {
     }
 
     public static boolean isWeapon(ItemStack stack) {
-        return stack.is(WEAPONS) || SpectralWeapons.isWieldedWeapon(stack);
+        return stack.is(WEAPONS) || Animated.isWieldedWeapon(stack);
     }
 
     /** Whether firing would use up the weapon's last durability. */

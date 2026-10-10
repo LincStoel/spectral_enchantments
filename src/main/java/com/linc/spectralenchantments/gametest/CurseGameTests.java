@@ -17,7 +17,9 @@ import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.tags.EnchantmentTags;
+import net.minecraft.core.Direction;
 import net.minecraft.world.Difficulty;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.SimpleContainer;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.entity.EntityType;
@@ -32,8 +34,11 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
 import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.common.CommonHooks;
 import net.neoforged.neoforge.common.EffectCures;
@@ -232,6 +237,41 @@ public final class CurseGameTests {
             helper.assertTrue(helper.getLevel().getRecipeManager().byKey(SpectralEnchantments.id("ars_nouveau/possession_curse_1")).isPresent(),
                     "Missing Ars Nouveau recipe possession_curse_1");
         }
+        helper.succeed();
+    }
+
+    /** Possession waits out Peaceful hidden, rather than being revealed (and so spent) where it can't fight. */
+    @GameTest(template = "empty", batch = "peaceful", timeoutTicks = 100)
+    public static void possessionWaitsOutPeaceful(GameTestHelper helper) {
+        helper.getLevel().getServer().setDifficulty(Difficulty.PEACEFUL, true);
+        FakePlayer player = player(helper);
+        ItemStack sword = enchanted(helper, Items.IRON_SWORD, ModEnchantments.POSSESSION_CURSE);
+        player.getInventory().setItem(0, sword);
+        Curses.reveal(player);
+        helper.assertFalse(Curses.isRevealed(sword), "In peaceful a possessed weapon keeps its curse hidden");
+        helper.assertTrue(possessed(helper).isEmpty(), "...and stays in the inventory");
+        helper.getLevel().getServer().setDifficulty(Difficulty.NORMAL, true);
+        // Unchanged slots are looked at again once a second, so it wakes within one.
+        helper.succeedWhen(() -> {
+            Curses.reveal(player);
+            helper.assertTrue(!possessed(helper).isEmpty(), "Once the difficulty rises it tears itself free");
+            possessed(helper).forEach(PossessedWeaponEntity::discard);
+        });
+    }
+
+    @GameTest(template = "empty")
+    public static void lockedItemStaysOutOfDecoratedPots(GameTestHelper helper) {
+        FakePlayer player = player(helper);
+        BlockPos pot = new BlockPos(4, 2, 5);
+        helper.setBlock(pot, Blocks.DECORATED_POT);
+        player.setItemInHand(InteractionHand.MAIN_HAND, enchanted(helper, Items.IRON_SWORD, Enchantments.VANISHING_CURSE));
+        BlockPos at = helper.absolutePos(pot);
+        BlockHitResult hit = new BlockHitResult(Vec3.atCenterOf(at), Direction.NORTH, at, false);
+        helper.assertFalse(CommonHooks.onRightClickBlock(player, InteractionHand.MAIN_HAND, at, hit).isCanceled(),
+                "Without Cursed the item may go in");
+        player.addEffect(new MobEffectInstance(ModEffects.CURSED, 200));
+        helper.assertTrue(CommonHooks.onRightClickBlock(player, InteractionHand.MAIN_HAND, at, hit).isCanceled(),
+                "While Cursed the pot refuses it");
         helper.succeed();
     }
 

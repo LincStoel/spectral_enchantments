@@ -11,6 +11,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -30,6 +31,9 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.common.util.BlockSnapshot;
+import net.neoforged.neoforge.event.EventHooks;
+import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.event.tick.LevelTickEvent;
 import org.joml.Vector3d;
 import org.joml.Vector3dc;
@@ -147,6 +151,8 @@ public final class SableCompat {
             mass = lookup.findVirtual(massData, "getMass", MethodType.methodType(double.class));
             available = true;
             NeoForge.EVENT_BUS.addListener(SableCompat::onLevelTick);
+            // Flights belong to the world they were fired in; a singleplayer world closing mustn't leave them behind.
+            NeoForge.EVENT_BUS.addListener((ServerStoppedEvent event) -> FLIGHTS.clear());
         } catch (Throwable e) {
             LOGGER.warn("Couldn't hook Sable; Catapulting will fire blocks the usual way", e);
         }
@@ -278,10 +284,19 @@ public final class SableCompat {
     private static void setDown(Flight flight, ServerLevel level, Vec3 center) throws Throwable {
         removeSubLevel.invoke(getContainer.invoke(level), flight.subLevel, removedReason);
         BlockPos at = BlockPos.containing(center);
+        // Placed as its shooter would place it, so their building rights (and protection mods) decide: with the
+        // shooter gone, it's dropped instead.
+        ServerPlayer shooter = level.getServer().getPlayerList().getPlayer(flight.shooter);
         try {
-            for (BlockPos pos : List.of(at, at.above())) {
-                if (level.isInWorldBounds(pos) && level.getBlockState(pos).canBeReplaced() && flight.state.canSurvive(level, pos)) {
+            for (BlockPos pos : shooter == null || shooter.level() != level ? List.<BlockPos>of() : List.of(at, at.above())) {
+                if (level.isInWorldBounds(pos) && level.getBlockState(pos).canBeReplaced() && flight.state.canSurvive(level, pos)
+                        && shooter.mayInteract(level, pos)) {
+                    BlockSnapshot before = BlockSnapshot.create(level.dimension(), level, pos);
                     level.setBlockAndUpdate(pos, flight.state);
+                    if (EventHooks.onBlockPlace(shooter, before, Direction.UP)) {
+                        before.restore();
+                        break;
+                    }
                     level.playSound(null, pos, flight.state.getSoundType(level, pos, null).getPlaceSound(), SoundSource.BLOCKS, 1f, 0.8f);
                     return;
                 }
