@@ -127,3 +127,10 @@ neoForge.ideSyncTask(generateModMetadata)
 tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
 }
+
+tasks.jar {
+    // GameTests and their structures are for dev runs only.
+    exclude("com/linc/spectralenchantments/gametest/**")
+    exclude("data/spectral_enchantments/structure/**")
+    from("LICENSE")
+}

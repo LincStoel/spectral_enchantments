@@ -235,4 +235,4 @@ Item tags also include the common `c:` tags (`c:swords`, `c:tools/melee_weapon`,
 
 ## License
 
-All Rights Reserved.
+GNU General Public License v3.0 or later. See [LICENSE](LICENSE).
