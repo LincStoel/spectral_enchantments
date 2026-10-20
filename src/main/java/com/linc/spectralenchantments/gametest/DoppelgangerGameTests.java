@@ -98,6 +98,43 @@ public final class DoppelgangerGameTests {
     }
 
     @GameTest(template = "empty")
+    public static void aMonsterTheOwnerHurtsTurnsOnTheOwner(GameTestHelper helper) {
+        FakePlayer player = player(helper, enchanted(helper, Items.IRON_CHESTPLATE));
+        Husk hit = helper.spawnWithNoFreeWill(EntityType.HUSK, new BlockPos(4, 2, 1));
+        hit.setTarget(player);
+        Husk untouched = helper.spawnWithNoFreeWill(EntityType.HUSK, new BlockPos(3, 2, 3));
+        untouched.setTarget(player);
+        Husk idle = helper.spawnWithNoFreeWill(EntityType.HUSK, new BlockPos(1, 2, 4));
+
+        player.setShiftKeyDown(true);
+        Doppelganger.update(player);
+        DoppelgangerEntity ghost = Doppelganger.ghostOf(player);
+        helper.assertTrue(ghost != null && hit.getTarget() == ghost && untouched.getTarget() == ghost,
+                "Both monsters turn on the double");
+
+        hit.hurt(helper.getLevel().damageSources().playerAttack(player), 1f);
+        helper.assertTrue(hit.getTarget() == player, "The monster the owner hurts turns on them");
+        helper.assertTrue(untouched.getTarget() == ghost, "The others keep after the double");
+        hit.setTarget(player);
+        helper.assertTrue(hit.getTarget() == player, "The double doesn't win the hurt monster back");
+
+        idle.hurt(helper.getLevel().damageSources().playerAttack(player), 1f);
+        idle.setTarget(player);
+        helper.assertTrue(idle.getTarget() == ghost, "A monster that wasn't after the double is still fooled by it");
+        helper.assertTrue(Doppelganger.isImmune(hit) && !Doppelganger.isImmune(idle), "Only the monster after the double is immune");
+
+        FakePlayer other = player(helper, enchanted(helper, Items.IRON_CHESTPLATE));
+        hit.setTarget(other);
+        other.setShiftKeyDown(true);
+        Doppelganger.update(other);
+        helper.assertTrue(Doppelganger.ghostOf(other) != null && hit.getTarget() == other,
+                "A later double doesn't draw the immune monster off its target");
+        hit.setTarget(other);
+        helper.assertTrue(hit.getTarget() == other, "Nor does it catch the immune monster picking a target");
+        helper.succeed();
+    }
+
+    @GameTest(template = "empty")
     public static void theDoubleCantBeHurt(GameTestHelper helper) {
         FakePlayer player = player(helper, enchanted(helper, Items.IRON_CHESTPLATE));
         Husk husk = helper.spawnWithNoFreeWill(EntityType.HUSK, new BlockPos(3, 2, 1));

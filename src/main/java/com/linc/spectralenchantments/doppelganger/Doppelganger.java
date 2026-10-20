@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.UUID;
 import javax.annotation.Nullable;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -18,6 +19,7 @@ import net.minecraft.world.phys.EntityHitResult;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
+import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingChangeTargetEvent;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
@@ -28,9 +30,14 @@ import net.neoforged.neoforge.event.tick.PlayerTickEvent;
  * {@link DoppelgangerEntity} behind, which vanishes when the owner stands up. Monsters within
  * {@link SpectralConfig#doppelgangerLureRadius()} of it that are after the owner go after it instead, both those
  * already chasing them when it appears and any that pick the owner later (caught as they choose their target, so
- * nothing is scanned per tick).
+ * nothing is scanned per tick). A monster after the double that the owner hurts sees through the trick for good:
+ * it turns on the owner and is tagged {@value #IMMUNE_TAG}, which no double fools again (the tag is saved with the
+ * monster and can be given or taken with {@code /tag}).
  */
 public final class Doppelganger {
+    /** Entity tag on monsters that doubles no longer fool. */
+    public static final String IMMUNE_TAG = "spectral_enchantments.doppelganger_immune";
+
     private static final Map<UUID, State> STATES = new HashMap<>();
 
     private Doppelganger() {}
@@ -41,10 +48,22 @@ public final class Doppelganger {
         boolean sneaking;
         /** Game time of the last double, or -1 before the first. */
         long lastSpawn = -1;
+
+        void clearGhost() {
+            if (ghost != null) {
+                ghost.discard();
+                ghost = null;
+            }
+        }
     }
 
     public static boolean has(LivingEntity entity) {
         return ModEnchantments.has(entity.level(), ModEnchantments.DOPPELGANGER, entity.getItemBySlot(EquipmentSlot.CHEST));
+    }
+
+    /** Whether doubles have stopped fooling {@code entity}. */
+    public static boolean isImmune(Entity entity) {
+        return entity.getTags().contains(IMMUNE_TAG);
     }
 
     /** The owner's double, if it is still standing. */
@@ -76,8 +95,7 @@ public final class Doppelganger {
         boolean started = sneaking && !state.sneaking;
         state.sneaking = sneaking;
         if (state.ghost != null && (state.ghost.isRemoved() || !sneaking || !has(player))) {
-            state.ghost.discard();
-            state.ghost = null;
+            state.clearGhost();
         }
         if (!started || !has(player) || !(player.level() instanceof ServerLevel level)) {
             return;
@@ -98,7 +116,7 @@ public final class Doppelganger {
     private static void lure(ServerLevel level, DoppelgangerEntity ghost, Player owner) {
         double radius = SpectralConfig.doppelgangerLureRadius();
         for (Mob mob : level.getEntitiesOfClass(Mob.class, ghost.getBoundingBox().inflate(radius),
-                mob -> mob.distanceToSqr(ghost) <= radius * radius)) {
+                mob -> mob.distanceToSqr(ghost) <= radius * radius && !isImmune(mob))) {
             if (mob.getTarget() == owner) {
                 mob.setTarget(ghost);
             }
@@ -112,13 +130,42 @@ public final class Doppelganger {
 
     @SubscribeEvent
     public static void onChangeTarget(LivingChangeTargetEvent event) {
-        if (!(event.getNewAboutToBeSetTarget() instanceof Player owner) || event.getEntity().level().isClientSide) {
+        if (!(event.getNewAboutToBeSetTarget() instanceof Player owner) || event.getEntity().level().isClientSide
+                || isImmune(event.getEntity())) {
             return;
         }
         DoppelgangerEntity ghost = ghostOf(owner);
         double radius = SpectralConfig.doppelgangerLureRadius();
         if (ghost != null && ghost.level() == event.getEntity().level() && event.getEntity().distanceToSqr(ghost) <= radius * radius) {
             event.setNewAboutToBeSetTarget(ghost);
+        }
+    }
+
+    /** A monster after the double that the owner hurts drops it for them for good, while the rest stay fooled. */
+    @SubscribeEvent
+    public static void onDamaged(LivingDamageEvent.Post event) {
+        if (!(event.getEntity() instanceof Mob mob) || !(event.getSource().getEntity() instanceof Player owner)
+                || mob.level().isClientSide) {
+            return;
+        }
+        DoppelgangerEntity ghost = ghostOf(owner);
+        if (ghost == null) {
+            return;
+        }
+        Brain<?> brain = mob.getBrain();
+        boolean goalTarget = mob.getTarget() == ghost;
+        boolean brainTarget = brain.hasMemoryValue(MemoryModuleType.ATTACK_TARGET)
+                && brain.getMemory(MemoryModuleType.ATTACK_TARGET).orElse(null) == ghost;
+        if (!goalTarget && !brainTarget) {
+            return;
+        }
+        // Marked first so that turning it on the owner below isn't redirected straight back.
+        mob.addTag(IMMUNE_TAG);
+        if (goalTarget) {
+            mob.setTarget(owner);
+        }
+        if (brainTarget) {
+            brain.setMemory(MemoryModuleType.ATTACK_TARGET, owner);
         }
     }
 
@@ -135,8 +182,8 @@ public final class Doppelganger {
     @SubscribeEvent
     public static void onLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         State state = STATES.remove(event.getEntity().getUUID());
-        if (state != null && state.ghost != null) {
-            state.ghost.discard();
+        if (state != null) {
+            state.clearGhost();
         }
     }
 
