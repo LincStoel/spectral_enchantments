@@ -7,7 +7,7 @@ the scenarios, taking screenshots and probing client state. Results:
   run-compat/bot{1,2}/harness-*.txt   client events and probes
 
     python tools/compat/run_compat.py              # everything
-    python tools/compat/run_compat.py vanilla ars  # chosen scenarios (vanilla, iris, ars, sneak, spectral, doppelganger, haunting)
+    python tools/compat/run_compat.py vanilla ars  # chosen scenarios (vanilla, iris, ars, sneak, spectral, doppelganger, haunting, study)
 """
 import pathlib
 import re
@@ -678,9 +678,162 @@ def scenario_haunting(s):
 
 
 
+LECTERN = (0, 0, 9)
+STUDY_SWORD = ('minecraft:diamond_sword[minecraft:enchantments={levels:{"minecraft:sharpness":3,'
+               '"minecraft:unbreaking":2}}]')
+COPY_SOURCE_ITEM = ('minecraft:enchanted_book[minecraft:stored_enchantments={levels:{"minecraft:sharpness":5,'
+                    '"minecraft:unbreaking":3}}]')
+
+
+def lectern(s, book):
+    x, y, z = LECTERN
+    s.c(f"setblock {x} {y} {z} air", quiet=True)
+    s.c(f"setblock {x} {y} {z} minecraft:lectern[facing=north,has_book=true]{{Book:{book}}}", quiet=True)
+
+
+def written_book(s, floating):
+    """Whether a written enchanted book is in the air above the lectern (floating) or has come down near it."""
+    x, y, z = LECTERN
+    dy = f"y={y + 1.5},dy=6" if floating else f"y={y - 1},dy=2.4"
+    out = s.c(f'execute if entity @e[type=minecraft:item,x={x - 2},dx=5,z={z - 2},dz=5,{dy},'
+              f'nbt={{Item:{{id:"minecraft:enchanted_book"}}}}]', quiet=True)
+    return "passed" in out.lower()
+
+
+def holds(s, item):
+    """Whether Bot1 carries `item` (clearing none of it)."""
+    return "no items" not in s.c(f"clear Bot1 {item} 0", quiet=True).lower()
+
+
+def study_stage(s):
+    """Bot1 faces a lectern 2 blocks south; Bot2 watches from Bot1's right, side on."""
+    s.c("fill -8 0 2 8 10 18 air", quiet=True)
+    s.c("clear Bot1", quiet=True)
+    s.c("gamemode survival Bot1", quiet=True)
+    s.c("xp set Bot1 0 points", quiet=True)
+    s.c("xp set Bot1 30 levels", quiet=True)
+    s.c("tp Bot1 0.5 0 7.5 0 25", quiet=True)  # pitch 25: eye ray meets the lectern's top
+    s.c("tp Bot2 3.0 0 8.0 104 12", quiet=True)
+    s.do("Bot1", "slot", "0")
+    time.sleep(2)
+
+
+def hold_use(s, prefix, seconds, shots_at=(0.4, 1.0, 1.6), then=None):
+    """Holds use as Bot1 for `seconds`, screenshotting both bots (and probing) at the given times, then calls `then`."""
+    s.do("Bot1", "use", "on")
+    start = time.time()
+    for i, at in enumerate(shots_at):
+        time.sleep(max(0.0, start + at - time.time()))
+        s.do("Bot1", "shot", f"{prefix}-{i}")
+        s.do("Bot2", "shot", f"{prefix}-remote-{i}")
+        s.do("Bot1", "probe", f"{prefix}-{i}")
+    time.sleep(max(0.0, start + seconds - time.time()))
+    s.do("Bot1", "shot", f"{prefix}-done")
+    s.do("Bot1", "probe", f"{prefix}-done")
+    if then:
+        then()
+    time.sleep(0.5)
+    s.do("Bot1", "use", "off")
+    time.sleep(1)
+    log(f"  probe Bot1: {last_probe('Bot1')}")
+
+
+def scenario_study(s):
+    """Studying and copying at a lectern: hands together, glow and rubbing, runes, the written book floating off."""
+    study_stage(s)
+    s.do("Bot1", "hud", "on")
+
+    lectern(s, '{id:"minecraft:writable_book",count:1}')
+    s.c(f"item replace entity Bot1 weapon.mainhand with {STUDY_SWORD}", quiet=True)
+    s.c("item replace entity Bot1 weapon.offhand with minecraft:amethyst_shard 4", quiet=True)
+    time.sleep(1)
+    hold_use(s, "study", 2.6, then=lambda: (s.do("Bot2", "shot", "study-float-remote"),
+                                           check(written_book(s, True), "[study] the written book floats up off the lectern")))
+    check(s.is_block(LECTERN, "minecraft:lectern[has_book=false]"), "[study] the lectern is left empty")
+    check(not holds(s, "minecraft:diamond_sword"), "[study] the studied sword is gone")
+    check(holds(s, "minecraft:amethyst_shard"), "[study] only one amethyst shard is used")
+    time.sleep(3)
+    check(written_book(s, False), "[study] and drops back down")
+    s.c("kill @e[type=minecraft:item]", quiet=True)
+
+    lectern(s, '{id:"minecraft:writable_book",count:1}')
+    s.c("clear Bot1", quiet=True)
+    s.c(f"item replace entity Bot1 weapon.mainhand with {COPY_SOURCE_ITEM}", quiet=True)
+    time.sleep(1)
+    hold_use(s, "copy", 2.6, then=lambda: (s.do("Bot2", "shot", "copy-float-remote"),
+                                           check(written_book(s, True), "[copy] the written book floats up off the lectern")))
+    check(holds(s, "minecraft:enchanted_book"), "[copy] the copied book is kept")
+    check(s.is_block(LECTERN, "minecraft:lectern[has_book=false]"), "[copy] the lectern is left empty")
+    time.sleep(3)
+    s.c("kill @e[type=minecraft:item]", quiet=True)
+
+    # A curse: at level 4 about one copy in 11 curses, so copy until one does (survival, to see the half heart).
+    s.c("xp set Bot1 0 levels", quiet=True)
+    s.c("effect give Bot1 minecraft:instant_health 1 5 true", quiet=True)
+    cursed = False
+    for attempt in range(30):
+        lectern(s, '{id:"minecraft:writable_book",count:1}')
+        s.c("tp Bot1 0.5 0 7.5 0 25", quiet=True)
+        s.c("xp set Bot1 0 points", quiet=True)
+        s.c("xp set Bot1 4 levels", quiet=True)
+        s.c(f"item replace entity Bot1 weapon.mainhand with {COPY_SOURCE_ITEM}", quiet=True)
+        time.sleep(0.5)
+        s.do("Bot1", "use", "on")
+        time.sleep(2.3)
+        s.do("Bot1", "probe", "curse-try")
+        time.sleep(0.3)
+        if "mistakes" in last_probe("Bot1"):
+            s.do("Bot2", "shot", "curse-remote")
+            s.do("Bot1", "shot", "curse")
+            time.sleep(0.4)
+            s.do("Bot2", "shot", "curse-remote-later")
+            cursed = True
+        s.do("Bot1", "use", "off")
+        time.sleep(1)
+        if cursed:
+            log(f"  cursed on attempt {attempt + 1}; probe Bot1: {last_probe('Bot1')}")
+            break
+        s.c("kill @e[type=minecraft:item]", quiet=True)
+    check(cursed, "[curse] a copy at level 4 eventually writes a curse")
+    if cursed:
+        out = s.c("data get entity Bot1 Pos[2]", quiet=True)
+        m = re.search(r"(-?\d+\.\d+)d", out)
+        check(m is not None and float(m.group(1)) < 7.3, f"[curse] the player is knocked back from the lectern ({out.strip()})")
+        out = s.c("data get entity Bot1 Health", quiet=True)
+        m = re.search(r"(\d+\.\d+)f", out)
+        log(f"  Bot1 health after the curse: {out.strip()}")
+    s.c("gamemode survival Bot1", quiet=True)
+    s.c("xp set Bot1 30 levels", quiet=True)
+    s.c("kill @e[type=minecraft:item]", quiet=True)
+
+    # Letting go part way uses nothing.
+    lectern(s, '{id:"minecraft:writable_book",count:1}')
+    s.c("clear Bot1", quiet=True)
+    s.c(f"item replace entity Bot1 weapon.mainhand with {STUDY_SWORD}", quiet=True)
+    s.c("item replace entity Bot1 weapon.offhand with minecraft:amethyst_shard 1", quiet=True)
+    time.sleep(1)
+    s.do("Bot1", "use", "on")
+    time.sleep(0.8)
+    s.do("Bot1", "use", "off")
+    time.sleep(3)
+    check(holds(s, "minecraft:diamond_sword") and holds(s, "minecraft:amethyst_shard"), "[study] letting go part way uses nothing")
+    check(s.is_block(LECTERN, 'minecraft:lectern{Book:{id:"minecraft:writable_book"}}'), "[study] and leaves the book and quill")
+
+    for bot in BOT_DIRS:
+        s.do(bot, "iris", "on")
+    time.sleep(25)
+    hold_use(s, "study-iris", 2.6)
+    s.c("kill @e[type=minecraft:item]", quiet=True)
+    for bot in BOT_DIRS:
+        s.do(bot, "iris", "off")
+    s.do("Bot1", "hud", "off")
+    s.c("clear Bot1", quiet=True)
+    time.sleep(3)
+
+
 SCENARIOS = {"debug": scenario_debug, "vanilla": scenario_vanilla, "iris": scenario_iris, "ars": scenario_ars,
              "sneak": scenario_sneak, "spectral": scenario_spectral,
-             "doppelganger": scenario_doppelganger, "haunting": scenario_haunting}
+             "doppelganger": scenario_doppelganger, "haunting": scenario_haunting, "study": scenario_study}
 
 
 def main():

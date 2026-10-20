@@ -41,7 +41,12 @@ public final class SpectralEnchantmentsClient {
             FarMinerClient.tick();
             BranchFindingClient.tick();
             AnimatedClient.tick();
+            StudyClient.tick();
         });
+        NeoForge.EVENT_BUS.addListener(StudyClient::onRightClickBlock);
+        NeoForge.EVENT_BUS.addListener(StudyClient::onRenderHand);
+        NeoForge.EVENT_BUS.addListener(StudyClient::onRenderPlayerPre);
+        NeoForge.EVENT_BUS.addListener(StudyClient::onLoggingOut);
         NeoForge.EVENT_BUS.addListener(CurseInput::onClientTick);
         // Better Combat sends its weapon data on joining; drop what was worked out before it arrived.
         NeoForge.EVENT_BUS.addListener((ClientPlayerNetworkEvent.LoggingIn event) -> BetterCombatCompat.clearCache());

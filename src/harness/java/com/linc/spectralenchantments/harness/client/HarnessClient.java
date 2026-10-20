@@ -29,7 +29,7 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
  * <ul>
  *   <li>{@code mine "x y z face"}: hold attack on that block until it breaks (or {@code stop})</li>
  *   <li>{@code stop}: release attack, aborting the current mining</li>
- *   <li>{@code sneak on|off}, {@code hud on|off}, {@code iris on|off}</li>
+ *   <li>{@code sneak on|off}, {@code use on|off} (hold use), {@code hud on|off}, {@code iris on|off}</li>
  *   <li>{@code slot n}: select hotbar slot n</li>
  *   <li>{@code move walk|sprint|stop}: hold forward (and sprint)</li>
  *   <li>{@code shot name}: screenshot to screenshots/name.png</li>
@@ -67,6 +67,7 @@ public final class HarnessClient {
             }
             case "trace" -> trace = arg.equals("on");
             case "sneak" -> mc.options.keyShift.setDown(arg.equals("on"));
+            case "use" -> mc.options.keyUse.setDown(arg.equals("on"));
             case "hud" -> mc.options.hideGui = arg.equals("off");
             case "inventory" -> mc.setScreen(arg.equals("open") && mc.player != null ? new InventoryScreen(mc.player) : null);
             case "slot" -> {
@@ -141,6 +142,8 @@ public final class HarnessClient {
         out.append(" | spectralSessions=").append(sessionCount());
         out.append(" | spectralCracks=").append(spectralCrackCount(mc));
         out.append(" | companions=").append(companions(mc));
+        out.append(" | studying=").append(studyCount());
+        out.append(" | actionbar=").append(actionBar(mc));
         if (mc.gameMode != null) {
             out.append(" | destroying=").append(mc.gameMode.isDestroying());
         }
@@ -150,6 +153,31 @@ public final class HarnessClient {
         }
         out.append(" | fps=").append(mc.getFps());
         append("harness-probe.txt", out.toString());
+    }
+
+    /** Players this client shows studying or copying at a lectern. */
+    private static Object studyCount() {
+        try {
+            Field f = Class.forName("com.linc.spectralenchantments.client.StudyClient").getDeclaredField("ACTIVE");
+            f.setAccessible(true);
+            return ((Map<?, ?>) f.get(null)).size();
+        } catch (ReflectiveOperationException e) {
+            return "n/a (" + e + ")";
+        }
+    }
+
+    /** The action bar's text, if it is showing. */
+    private static String actionBar(Minecraft mc) {
+        try {
+            Field text = mc.gui.getClass().getDeclaredField("overlayMessageString");
+            Field time = mc.gui.getClass().getDeclaredField("overlayMessageTime");
+            text.setAccessible(true);
+            time.setAccessible(true);
+            Object message = text.get(mc.gui);
+            return (int) time.get(mc.gui) > 0 && message != null ? "'" + ((net.minecraft.network.chat.Component) message).getString() + "'" : "''";
+        } catch (ReflectiveOperationException e) {
+            return "n/a (" + e + ")";
+        }
     }
 
     private static Object sessionCount() {

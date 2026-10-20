@@ -1,5 +1,6 @@
 package com.linc.spectralenchantments;
 
+import com.linc.spectralenchantments.study.EnchantmentStudy;
 import java.util.List;
 import java.util.function.IntPredicate;
 import net.minecraft.util.Mth;
@@ -10,14 +11,16 @@ import net.neoforged.neoforge.common.ModConfigSpec;
  * The mod's settings.
  *
  * <ul>
- *   <li>Common ({@code config/spectral_enchantments-common.toml}): switching each enchantment off. Read when
- *       data packs load, so a change takes effect after a restart (or {@code /reload}).</li>
+ *   <li>Common ({@code config/spectral_enchantments-common.toml}): switching each enchantment off, read when data
+ *       packs load, so a change takes effect after a restart (or {@code /reload}); and switching enchantment study at
+ *       lecterns off, which takes effect at once.</li>
  *   <li>Server ({@code serverconfig/spectral_enchantments-server.toml} in each world, synced to clients):
  *       Broad Breaker areas, Far Miner reaches and speed, and Branch Finding's
  *       duration, search limit and cooldown, Animated's follow range, radii, deployment time and recall distance, Catapulting's
  *       durability costs, item damage and block placing, Explosive Bolts' fire spray and explosion, Doppelganger's
  *       lure radius, range, cooldown and emote timing, how curses are revealed and how long the Cursed effect lasts, the Curse of Possession's possessed weapons, and the
- *       Curse of Haunting's ghost.</li>
+ *       Curse of Haunting's ghost, and the curse chances, experience costs and timing of studying and copying
+ *       enchantments at a lectern.</li>
  * </ul>
  */
 public final class SpectralConfig {
@@ -59,6 +62,9 @@ public final class SpectralConfig {
     private static final ModConfigSpec.BooleanValue POSSESSION_CURSE_TREASURE_ONLY;
     private static final ModConfigSpec.BooleanValue HAUNTING_CURSE_ENABLED;
     private static final ModConfigSpec.BooleanValue HAUNTING_CURSE_TREASURE_ONLY;
+    private static final ModConfigSpec.BooleanValue STUDY_ENABLED;
+    private static final ModConfigSpec.BooleanValue STUDYING_ENABLED;
+    private static final ModConfigSpec.BooleanValue COPYING_ENABLED;
 
     public static final ModConfigSpec SERVER_SPEC;
     private static final ModConfigSpec.ConfigValue<List<? extends Integer>> BREAKER_AREAS;
@@ -115,6 +121,17 @@ public final class SpectralConfig {
     private static final ModConfigSpec.IntValue HAUNTING_CAST_MIN;
     private static final ModConfigSpec.IntValue HAUNTING_CAST_MAX;
     private static final ModConfigSpec.BooleanValue HAUNTING_MONSTER_GHOSTS;
+    private static final ModConfigSpec.DoubleValue STUDYING_CURSE_CHANCE_MAX;
+    private static final ModConfigSpec.DoubleValue STUDYING_CURSE_CHANCE_MIN;
+    private static final ModConfigSpec.IntValue STUDYING_CURSE_CHANCE_MIN_LEVEL;
+    private static final ModConfigSpec.IntValue STUDYING_XP_COST;
+    private static final ModConfigSpec.IntValue STUDYING_DURATION;
+    private static final ModConfigSpec.DoubleValue COPYING_CURSE_CHANCE_MAX;
+    private static final ModConfigSpec.DoubleValue COPYING_CURSE_CHANCE_MIN;
+    private static final ModConfigSpec.IntValue COPYING_CURSE_CHANCE_MIN_LEVEL;
+    private static final ModConfigSpec.IntValue COPYING_XP_COST;
+    private static final ModConfigSpec.IntValue COPYING_DURATION;
+    private static final ModConfigSpec.DoubleValue STUDY_TREASURE_MULTIPLIER;
 
     static {
         ModConfigSpec.Builder common = new ModConfigSpec.Builder();
@@ -248,6 +265,22 @@ public final class SpectralConfig {
                 .translation("spectral_enchantments.configuration.hauntingCurse.treasure_only")
                 .worldRestart()
                 .define("hauntingCurse.treasure_only", true);
+        STUDY_ENABLED = common
+                .comment("Whether enchantments can be studied or copied at a lectern at all. When false neither works, whatever",
+                        "their own settings say.")
+                .translation("spectral_enchantments.configuration.enchantmentStudy.enabled")
+                .define("enchantmentStudy.enabled", true);
+        STUDYING_ENABLED = common
+                .comment("Whether an enchanted item can be studied: used on a lectern holding a blank book and quill, with an",
+                        "amethyst shard in the off hand, the item is destroyed to write one of its enchantments, at level I, into",
+                        "the book.")
+                .translation("spectral_enchantments.configuration.enchantmentStudy.studying.enabled")
+                .define("enchantmentStudy.studying.enabled", true);
+        COPYING_ENABLED = common
+                .comment("Whether an enchanted book can be copied: used on a lectern holding a blank book and quill, one of its",
+                        "enchantments is written, at level I, into the book. The enchanted book is kept.")
+                .translation("spectral_enchantments.configuration.enchantmentStudy.copying.enabled")
+                .define("enchantmentStudy.copying.enabled", true);
         COMMON_SPEC = common.build();
 
         ModConfigSpec.Builder server = new ModConfigSpec.Builder();
@@ -503,6 +536,57 @@ public final class SpectralConfig {
                         "extra entity, which adds up where many such monsters gather (mob farms).")
                 .translation("spectral_enchantments.configuration.hauntingCurse.monsterGhosts")
                 .define(List.of("hauntingCurse", "monsterGhosts"), true);
+        STUDYING_CURSE_CHANCE_MAX = server
+                .comment("The chance, from 0 to 1, that studying an item at level 0 writes a random curse instead of its enchantment.",
+                        "The chance falls in a straight line from this to curseChanceMin as the player's level rises to",
+                        "curseChanceMinLevel.")
+                .translation("spectral_enchantments.configuration.enchantmentStudy.studying.curseChanceMax")
+                .defineInRange(List.of("enchantmentStudy", "studying", "curseChanceMax"), 0.1, 0.0, 1.0);
+        STUDYING_CURSE_CHANCE_MIN = server
+                .comment("The chance, from 0 to 1, that studying an item writes a curse at curseChanceMinLevel and above.")
+                .translation("spectral_enchantments.configuration.enchantmentStudy.studying.curseChanceMin")
+                .defineInRange(List.of("enchantmentStudy", "studying", "curseChanceMin"), 0.0005, 0.0, 1.0);
+        STUDYING_CURSE_CHANCE_MIN_LEVEL = server
+                .comment("The experience level at which the curse chance for studying an item bottoms out at curseChanceMin.")
+                .translation("spectral_enchantments.configuration.enchantmentStudy.studying.curseChanceMinLevel")
+                .defineInRange(List.of("enchantmentStudy", "studying", "curseChanceMinLevel"), 30, 1, 1000);
+        STUDYING_XP_COST = server
+                .comment("Experience points studying an item costs (27 is what it takes to reach level 3 from nothing).",
+                        "Free in creative.")
+                .translation("spectral_enchantments.configuration.enchantmentStudy.studying.xpCost")
+                .defineInRange(List.of("enchantmentStudy", "studying", "xpCost"), 27, 0, 10000);
+        STUDYING_DURATION = server
+                .comment("How long use must be held to study an item, in ticks (20 a second).")
+                .translation("spectral_enchantments.configuration.enchantmentStudy.studying.durationTicks")
+                .defineInRange(List.of("enchantmentStudy", "studying", "durationTicks"), 40, 10, 200);
+        COPYING_CURSE_CHANCE_MAX = server
+                .comment("The chance, from 0 to 1, that copying a book at level 0 writes a random curse instead of its enchantment.",
+                        "The chance falls in a straight line from this to curseChanceMin as the player's level rises to",
+                        "curseChanceMinLevel.")
+                .translation("spectral_enchantments.configuration.enchantmentStudy.copying.curseChanceMax")
+                .defineInRange(List.of("enchantmentStudy", "copying", "curseChanceMax"), 0.1, 0.0, 1.0);
+        COPYING_CURSE_CHANCE_MIN = server
+                .comment("The chance, from 0 to 1, that copying a book writes a curse at curseChanceMinLevel and above.")
+                .translation("spectral_enchantments.configuration.enchantmentStudy.copying.curseChanceMin")
+                .defineInRange(List.of("enchantmentStudy", "copying", "curseChanceMin"), 0.0005, 0.0, 1.0);
+        COPYING_CURSE_CHANCE_MIN_LEVEL = server
+                .comment("The experience level at which the curse chance for copying a book bottoms out at curseChanceMin.")
+                .translation("spectral_enchantments.configuration.enchantmentStudy.copying.curseChanceMinLevel")
+                .defineInRange(List.of("enchantmentStudy", "copying", "curseChanceMinLevel"), 30, 1, 1000);
+        COPYING_XP_COST = server
+                .comment("Experience points copying a book costs (27 is what it takes to reach level 3 from nothing).",
+                        "Free in creative.")
+                .translation("spectral_enchantments.configuration.enchantmentStudy.copying.xpCost")
+                .defineInRange(List.of("enchantmentStudy", "copying", "xpCost"), 27, 0, 10000);
+        COPYING_DURATION = server
+                .comment("How long use must be held to copy a book, in ticks (20 a second).")
+                .translation("spectral_enchantments.configuration.enchantmentStudy.copying.durationTicks")
+                .defineInRange(List.of("enchantmentStudy", "copying", "durationTicks"), 40, 10, 200);
+        STUDY_TREASURE_MULTIPLIER = server
+                .comment("Multiplies the experience cost when the enchantment studied or copied is a treasure enchantment",
+                        "(Mending and the like; curses don't count). 1 for no extra cost.")
+                .translation("spectral_enchantments.configuration.enchantmentStudy.treasureMultiplier")
+                .defineInRange(List.of("enchantmentStudy", "treasureMultiplier"), 2.0, 1.0, 10.0);
         SERVER_SPEC = server.build();
     }
 
@@ -618,6 +702,18 @@ public final class SpectralConfig {
 
     public static boolean hauntingCurseEnabled() {
         return COMMON_SPEC.isLoaded() ? HAUNTING_CURSE_ENABLED.get() : HAUNTING_CURSE_ENABLED.getDefault();
+    }
+
+    /** Whether enchanted items can be studied at a lectern: enchantment study and studying both on. */
+    public static boolean studyingEnabled() {
+        return COMMON_SPEC.isLoaded() ? STUDY_ENABLED.get() && STUDYING_ENABLED.get()
+                : STUDY_ENABLED.getDefault() && STUDYING_ENABLED.getDefault();
+    }
+
+    /** Whether enchanted books can be copied at a lectern: enchantment study and copying both on. */
+    public static boolean copyingEnabled() {
+        return COMMON_SPEC.isLoaded() ? STUDY_ENABLED.get() && COPYING_ENABLED.get()
+                : STUDY_ENABLED.getDefault() && COPYING_ENABLED.getDefault();
     }
 
     /** Broad Breaker's area width at {@code level} (levels above III use III's). */
@@ -894,6 +990,47 @@ public final class SpectralConfig {
     /** Whether monsters wearing the Curse of Haunting get ghosts of their own. */
     public static boolean hauntingMonsterGhosts() {
         return SERVER_SPEC.isLoaded() ? HAUNTING_MONSTER_GHOSTS.get() : HAUNTING_MONSTER_GHOSTS.getDefault();
+    }
+
+    /** The chance that studying an item writes a curse instead, for a player at {@code level}. */
+    public static double studyingCurseChance(int level) {
+        boolean loaded = SERVER_SPEC.isLoaded();
+        return EnchantmentStudy.curseChance(level,
+                loaded ? STUDYING_CURSE_CHANCE_MAX.get() : STUDYING_CURSE_CHANCE_MAX.getDefault(),
+                loaded ? STUDYING_CURSE_CHANCE_MIN.get() : STUDYING_CURSE_CHANCE_MIN.getDefault(),
+                loaded ? STUDYING_CURSE_CHANCE_MIN_LEVEL.get() : STUDYING_CURSE_CHANCE_MIN_LEVEL.getDefault());
+    }
+
+    /** In experience points. */
+    public static int studyingXpCost() {
+        return SERVER_SPEC.isLoaded() ? STUDYING_XP_COST.get() : STUDYING_XP_COST.getDefault();
+    }
+
+    public static int studyingDurationTicks() {
+        return SERVER_SPEC.isLoaded() ? STUDYING_DURATION.get() : STUDYING_DURATION.getDefault();
+    }
+
+    /** The chance that copying a book writes a curse instead, for a player at {@code level}. */
+    public static double copyingCurseChance(int level) {
+        boolean loaded = SERVER_SPEC.isLoaded();
+        return EnchantmentStudy.curseChance(level,
+                loaded ? COPYING_CURSE_CHANCE_MAX.get() : COPYING_CURSE_CHANCE_MAX.getDefault(),
+                loaded ? COPYING_CURSE_CHANCE_MIN.get() : COPYING_CURSE_CHANCE_MIN.getDefault(),
+                loaded ? COPYING_CURSE_CHANCE_MIN_LEVEL.get() : COPYING_CURSE_CHANCE_MIN_LEVEL.getDefault());
+    }
+
+    /** In experience points. */
+    public static int copyingXpCost() {
+        return SERVER_SPEC.isLoaded() ? COPYING_XP_COST.get() : COPYING_XP_COST.getDefault();
+    }
+
+    public static int copyingDurationTicks() {
+        return SERVER_SPEC.isLoaded() ? COPYING_DURATION.get() : COPYING_DURATION.getDefault();
+    }
+
+    /** Applies to treasure enchantments other than curses; 1 is no extra cost. */
+    public static double studyTreasureMultiplier() {
+        return SERVER_SPEC.isLoaded() ? STUDY_TREASURE_MULTIPLIER.get() : STUDY_TREASURE_MULTIPLIER.getDefault();
     }
 
     /** Defaults until the world's server config is loaded (or synced, on a client). */

@@ -8,6 +8,8 @@ version="${mod_version}"
 displayName="${mod_name}"
 authors="${mod_authors}"
 description='''${mod_description}'''
+# The two-handed arm pose of studying and copying enchantments at a lectern.
+enumExtensions="META-INF/enumextensions.json"
 
 [[accessTransformers]]
 file="META-INF/accesstransformer.cfg"

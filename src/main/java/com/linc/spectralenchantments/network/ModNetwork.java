@@ -5,6 +5,8 @@ import com.linc.spectralenchantments.animated.AnimatedManager;
 import com.linc.spectralenchantments.client.BranchFindingClient;
 import com.linc.spectralenchantments.client.FarMinerClient;
 import com.linc.spectralenchantments.client.SpectralSessions;
+import com.linc.spectralenchantments.client.StudyClient;
+import com.linc.spectralenchantments.study.EnchantmentStudy;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
@@ -31,9 +33,19 @@ public final class ModNetwork {
                 BranchFindingClient.handle(payload);
             }
         });
+        registrar.playToClient(StudyPayload.TYPE, StudyPayload.STREAM_CODEC, (payload, context) -> {
+            if (FMLEnvironment.dist.isClient()) {
+                StudyClient.handle(payload);
+            }
+        });
         registrar.playToServer(FarMinePayload.TYPE, FarMinePayload.STREAM_CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) {
                 FarMiner.handle(player, payload);
+            }
+        });
+        registrar.playToServer(StudyReleasePayload.TYPE, StudyReleasePayload.STREAM_CODEC, (payload, context) -> {
+            if (context.player() instanceof ServerPlayer player) {
+                EnchantmentStudy.release(player);
             }
         });
         registrar.playToServer(AnimatedRecallPayload.TYPE, AnimatedRecallPayload.STREAM_CODEC, (payload, context) -> {

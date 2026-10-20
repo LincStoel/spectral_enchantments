@@ -12,6 +12,7 @@ import com.linc.spectralenchantments.doppelganger.Doppelganger;
 import com.linc.spectralenchantments.explosive.ExplosiveBolts;
 import com.linc.spectralenchantments.network.ModNetwork;
 import com.linc.spectralenchantments.spectral.WeaponStrike;
+import com.linc.spectralenchantments.study.EnchantmentStudy;
 import com.mojang.serialization.MapCodec;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -50,6 +51,7 @@ public final class SpectralEnchantments {
         ModEntities.ENTITY_TYPES.register(modBus);
         ModComponents.COMPONENTS.register(modBus);
         ModEffects.EFFECTS.register(modBus);
+        ModAttachments.ATTACHMENT_TYPES.register(modBus);
         modBus.addListener((EntityAttributeCreationEvent event) -> {
             event.put(ModEntities.POSSESSED_WEAPON.get(), PossessedWeaponEntity.createAttributes().build());
             event.put(ModEntities.DOPPELGANGER.get(), LivingEntity.createLivingAttributes().build());
@@ -68,6 +70,7 @@ public final class SpectralEnchantments {
         NeoForge.EVENT_BUS.register(Doppelganger.class);
         NeoForge.EVENT_BUS.register(Curses.class);
         NeoForge.EVENT_BUS.register(Haunting.class);
+        NeoForge.EVENT_BUS.register(EnchantmentStudy.class);
         NeoForge.EVENT_BUS.addListener((TagsUpdatedEvent event) -> BetterCombatCompat.clearCache());
         ArsNouveauCompat.register();
         SableCompat.register();

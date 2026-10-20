@@ -160,6 +160,22 @@ These apply to all curses, including vanilla ones.
 - **Hidden curses.** A curse doesn't appear in an item's tooltip until the item has been in a survival or adventure player's inventory. For armor and other wearables, it stays hidden until the item is worn. Players in creative mode always see curses, and enchanted books always show theirs. This can be turned off with `curses.hideUntilHeld`.
 - **Cursed effect.** When a curse is revealed, the player gets the Cursed effect for 60 seconds (configurable, 0 to disable). While it lasts, no cursed item they carry can be dropped, moved into another container or bundle, put into a block that holds items, placed in an item frame, or given to an armor stand or allay. Milk and Dispel don't remove it. Blocks that refuse cursed items are set by `spectral_enchantments:cursed/refuses_items` (default: decorated pot).
 
+## Studying and copying enchantments
+
+A lectern can teach you an item's enchantments, or copy an enchanted book. Both write the enchantment at level I and cost experience.
+
+Both start with a blank book and quill on a lectern. When done, it becomes an enchanted book that floats up off the lectern and drops back down.
+
+- **Studying.** Hold an enchanted item in your main hand and an amethyst shard in your off hand, then hold use on the lectern. You rub the amethyst on the glowing item for a moment, and both vanish in a puff of purple sparks. The book gets one of the item's enchantments.
+- **Copying.** Hold use on the lectern with an enchanted book. The book and quill gets one of its enchantments, and you keep the enchanted book.
+- Sometimes your mistakes result in a random curse instead: 1 in 10 at level 0, falling steadily to 1 in 2000 at level 30 and above. The curse lashes out for half a heart and knocks you back from the lectern, and the book rises in a shower of blood.
+- Use must be held until it's done (2 seconds). Letting go uses up nothing. While you work, enchanting runes stream from your hands to the lectern and the enchantment's name is spelled out in enchanting runes above the hotbar.
+- Each costs 27 experience points (what it takes to reach level 3), double for treasure enchantments like Mending. Curses cost the base amount. Free in creative.
+- Which enchantment you get is fixed for each player and item until you finish a study or copy, as with the enchanting table, so letting go and trying again gives the same result.
+- Only enchantments actually on the item count. For example, the Fortune that Quark gives gold tools can't be studied.
+- Enchantments that are switched off can't be studied or copied, and treasure enchantments can't be copied. They are left out when choosing; if nothing is left, you are told which ones are too powerful.
+- Tags: `spectral_enchantments:study/catalyst` (items to rub with; amethyst shard), `study/unstudyable` (empty), `study/uncopyable` (`#minecraft:treasure`), `study/curses` (curses that can be written; `#minecraft:curse`).
+
 ## Obtaining
 
 - **Enchanting table:** all non-treasure enchantments.
@@ -197,6 +213,8 @@ Loot entries for a disabled enchantment are not added.
 - `enabled`: when false, the enchantment stays registered so existing items keep it, but it does nothing and no longer appears in enchanting tables, loot, trades or recipes.
 - `treasure_only`: when true, the enchantment can't be rolled at the enchanting table and is found like Mending instead.
 
+Also `enchantmentStudy.enabled` (turns off studying and copying), `enchantmentStudy.studying.enabled` and `enchantmentStudy.copying.enabled`, all true. These take effect at once.
+
 **Server** (`serverconfig/spectral_enchantments-server.toml`, per world, synced to clients):
 
 | Section | Settings (default) |
@@ -211,6 +229,7 @@ Loot entries for a disabled enchantment are not added.
 | `curses` | `hideUntilHeld` true, `cursedSeconds` 60 |
 | `possessionCurse` | `healthPerDurability` 0.05, `minHealth` 6, `maxHealth` 40, `healthPerHardness` 4.0, `itemHealth` 1.0, `armor` 2.0, `damageMultiplier` 1.0, `dropChance` 0.1, `dropDurability` 0.05 |
 | `hauntingCurse` | `appearMinSeconds` 180, `appearMaxSeconds` 480, `stareSeconds` 30, `stareMinDistance` 12, `stareMaxDistance` 20, `approachDistance` 8, `monsterRadius` 16, `strengthRadius` 6, `strengthLevel` 1, `banishMinSeconds` 10, `banishMaxSeconds` 20, `castMinSeconds` 8, `castMaxSeconds` 20, `monsterGhosts` true |
+| `enchantmentStudy` | `studying` and `copying` each: `curseChanceMax` 0.1 (at level 0), `curseChanceMin` 0.0005, `curseChanceMinLevel` 30, `xpCost` 27, `durationTicks` 40; `treasureMultiplier` 2.0 |
 
 Invalid values are reset to their defaults.
 
