@@ -5,6 +5,7 @@ import com.linc.spectralenchantments.SpectralConfig;
 import com.linc.spectralenchantments.doppelganger.PlayerGhostEntity;
 import java.util.List;
 import javax.annotation.Nullable;
+import net.minecraft.core.Holder;
 import net.minecraft.core.particles.ColorParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.syncher.EntityDataAccessor;
@@ -12,8 +13,10 @@ import net.minecraft.network.syncher.EntityDataSerializers;
 import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.DamageTypeTags;
+import net.minecraft.util.FastColor;
 import net.minecraft.util.Mth;
 import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
@@ -30,44 +33,47 @@ import net.minecraft.world.phys.Vec3;
  * A Curse of Haunting's ghost: a pale copy of whoever wears the cursed armor.
  *
  * <ul>
- *   <li>A player's ghost stares at them from afar. With monsters about it drifts over to them and lends Strength to
- *       every monster near it. Struck by a player it vanishes for a while (see {@link Haunting}); approached while
- *       staring, it flees for a second and is gone. Every so often it raises its arms like an evoker casting a
- *       spell ({@link #isCasting()}).</li>
- *   <li>A monster's ghost stays at its shoulder for as long as it wears the armor,
- *       lending Strength to the monsters around it. Struck by a player it fades out for a while, then returns.</li>
+ *   <li>A player's ghost stands somewhere off from them and stares. Struck by a player it vanishes for a while (see
+ *       {@link Haunting}); if they come too close or go too far, it vanishes in a puff. With monsters about it
+ *       floats over to them and haunts the nearest; once they're gone, so is it.</li>
+ *   <li>A monster's ghost haunts it for as long as it wears the armor, floating at its shoulder. Struck by a player it
+ *       fades out for a while, then returns.</li>
  * </ul>
  *
- * Moves through blocks; monsters never notice it.
+ * A haunted monster slowly heals, and every so often the ghost raises its arms like an evoker casting a spell
+ * ({@link #isCasting()}), giving it and the monsters around it Speed, Strength or Resistance for a while. Moves through
+ * blocks; monsters never notice it.
  */
 public class HauntingGhostEntity extends PlayerGhostEntity {
     private static final EntityDataAccessor<Boolean> CASTING =
             SynchedEntityData.defineId(HauntingGhostEntity.class, EntityDataSerializers.BOOLEAN);
+    /** The colour of the spell it casts, for its particles. */
+    private static final EntityDataAccessor<Integer> SPELL_COLOR =
+            SynchedEntityData.defineId(HauntingGhostEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Boolean> HAUNTING =
+            SynchedEntityData.defineId(HauntingGhostEntity.class, EntityDataSerializers.BOOLEAN);
     /** How long a spell-casting gesture lasts, in ticks. */
     public static final int CAST_TICKS = 40;
-    /** An evoker's spell particles, pale like the ghost. */
-    private static final float[] CAST_PARTICLE_COLOR = {0.8f, 0.8f, 0.9f};
+    /** What its spells may give the monsters. */
+    private static final List<Holder<MobEffect>> SPELLS =
+            List.of(MobEffects.MOVEMENT_SPEED, MobEffects.DAMAGE_BOOST, MobEffects.DAMAGE_RESISTANCE);
+    /** How often a haunted monster heals half a heart, in ticks: as Regeneration I, which undead would ignore. */
+    private static final int HEAL_INTERVAL = 50;
+    private static final float[] HEAL_PARTICLE_COLOR = {0.8f, 0.36f, 0.67f};
     /** How often it looks for monsters near its owner, in ticks. */
     private static final int SEARCH_INTERVAL = 10;
-    /** How often it hands out Strength, and for how long each lasts, in ticks. */
-    private static final int STRENGTH_INTERVAL = 20;
-    private static final int STRENGTH_TICKS = 60;
     /** How often a monster's ghost checks that its owner still wears the curse, in ticks. */
     private static final int ARMOR_CHECK_INTERVAL = 20;
-    private static final int FLEE_TICKS = 20;
     private static final double DRIFT_SPEED = 0.3;
-    private static final double FLEE_SPEED = 0.45;
     /** A monster's ghost further than this from it, in blocks, catches up at once. */
     private static final double ESCORT_SNAP_DISTANCE = 12;
 
     private int stareTicks;
-    /** Ticks until a player's ghost next raises its arms, then ticks left of the gesture while {@link #isCasting()}. */
+    /** Ticks until it next casts while haunting, then ticks left of the gesture while {@link #isCasting()}. */
     private int castTimer;
-    /** Ticks of fleeing left, or 0 while not fleeing. */
-    private int fleeTicks;
     /** Ticks a struck monster's ghost stays faded out, or 0 while it is out. */
     private int hiddenTicks;
-    /** The monster a player's ghost hovers by, or null while it stares. */
+    /** The monster a player's ghost haunts, or null while it stares. */
     @Nullable
     private Mob focus;
     /** Ticks before it comes back once gone, or -1 to wait the usual time. Server only. */
@@ -94,6 +100,7 @@ public class HauntingGhostEntity extends PlayerGhostEntity {
         Vec3 pos = ghost.escortSpot(owner);
         ghost.moveTo(pos.x, pos.y, pos.z, owner.getYRot(), 0f);
         ghost.bind(owner, cursedArmor, owner.getYRot());
+        ghost.castTimer = ghost.nextCastDelay();
         return ghost;
     }
 
@@ -101,6 +108,8 @@ public class HauntingGhostEntity extends PlayerGhostEntity {
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
         builder.define(CASTING, false);
+        builder.define(SPELL_COLOR, 0xFFFFFF);
+        builder.define(HAUNTING, false);
     }
 
     /** Ticks before the next ghost should appear, or -1 for the usual wait. */
@@ -113,14 +122,27 @@ public class HauntingGhostEntity extends PlayerGhostEntity {
         return entityData.get(CASTING);
     }
 
-    /** Raises its arms for {@link #CAST_TICKS}. Server only. */
-    public void startCasting() {
-        entityData.set(CASTING, true);
-        castTimer = CAST_TICKS;
+    /** Whether it's floating by a monster, haunting it, rather than standing and staring. */
+    public boolean isHaunting() {
+        return entityData.get(HAUNTING);
     }
 
-    public boolean isFleeing() {
-        return fleeTicks > 0;
+    /**
+     * Raises its arms for {@link #CAST_TICKS} and gives {@code mob}, and the monsters within the spell radius of it, one
+     * of Speed, Strength or Resistance. Server only.
+     */
+    public void cast(Mob mob) {
+        Holder<MobEffect> spell = SPELLS.get(random.nextInt(SPELLS.size()));
+        entityData.set(CASTING, true);
+        entityData.set(SPELL_COLOR, spell.value().getColor());
+        castTimer = CAST_TICKS;
+        double radius = SpectralConfig.hauntingBuffRadius();
+        int ticks = SpectralConfig.hauntingBuffTicks();
+        int amplifier = SpectralConfig.hauntingBuffLevel() - 1;
+        for (Mob monster : level().getEntitiesOfClass(Mob.class, mob.getBoundingBox().inflate(radius),
+                m -> m == mob || m instanceof Enemy && m.isAlive() && m.distanceToSqr(mob) <= radius * radius)) {
+            monster.addEffect(new MobEffectInstance(spell, ticks, amplifier), this);
+        }
     }
 
     /** Whether a struck monster's ghost is faded out for now. */
@@ -168,62 +190,36 @@ public class HauntingGhostEntity extends PlayerGhostEntity {
             discard();
             return;
         }
-        if (fleeTicks > 0) {
-            entityData.set(CASTING, false);
-            flee(owner);
-            return;
-        }
-        if (--castTimer <= 0) {
-            if (isCasting()) {
-                entityData.set(CASTING, false);
-                castTimer = nextCastDelay();
-            } else {
-                startCasting();
-            }
-        }
         if (tickCount % SEARCH_INTERVAL == 0 || focus != null && !focus.isAlive()) {
             focus = findFocus(owner);
         }
         if (focus != null) {
-            haunt(owner, focus);
+            // Just behind the monster, as its owner sees it.
+            Vec3 away = focus.position().subtract(owner.position()).multiply(1, 0, 1);
+            away = away.lengthSqr() < 1.0E-4 ? Vec3.ZERO : away.normalize().scale(focus.getBbWidth() / 2 + 1.2);
+            driftTo(focus.position().add(away).add(0, 0.4, 0), DRIFT_SPEED);
+            haunt(focus);
+        } else if (isHaunting()) {
+            // Its monsters are gone, and it's left floating.
+            vanish(-1);
         } else {
             stare(owner);
         }
     }
 
     /**
-     * Hovers where it is, watching; flees if its owner comes too close (unless monsters have turned up since it last
-     * looked, as when a mob's blow calls it out), and leaves once it has stared long enough.
+     * Stands where it is, watching; vanishes if its owner comes too close (unless monsters have turned up since it last
+     * looked, as when a mob's blow calls it out) or goes too far, and once it has stared long enough.
      */
     private void stare(Player owner) {
         lookAt(owner);
-        if (owner.distanceToSqr(this) < Mth.square(SpectralConfig.hauntingApproachDistance())) {
+        double distance = owner.distanceToSqr(this);
+        if (distance < Mth.square(SpectralConfig.hauntingApproachDistance())) {
             focus = findFocus(owner);
             if (focus == null) {
-                fleeTicks = FLEE_TICKS;
+                vanish(-1);
             }
-        } else if (--stareTicks <= 0) {
-            vanish(-1);
-        }
-    }
-
-    /** Drifts to just behind the monster (as its owner sees it) and lends Strength to the monsters around it. */
-    private void haunt(Player owner, Mob mob) {
-        Vec3 away = mob.position().subtract(owner.position()).multiply(1, 0, 1);
-        away = away.lengthSqr() < 1.0E-4 ? Vec3.ZERO : away.normalize().scale(mob.getBbWidth() / 2 + 1.2);
-        driftTo(mob.position().add(away).add(0, 0.4, 0), DRIFT_SPEED);
-        lookAt(owner);
-        strengthen(null);
-    }
-
-    /** Darts away from its owner, then is gone. */
-    private void flee(Player owner) {
-        Vec3 away = position().subtract(owner.position()).multiply(1, 0, 1);
-        away = away.lengthSqr() < 1.0E-4 ? Vec3.directionFromRotation(0, getYRot() + 180) : away.normalize();
-        driftTo(position().add(away.scale(FLEE_SPEED)).add(0, 0.05, 0), FLEE_SPEED);
-        setYRot((float) (Mth.atan2(away.z, away.x) * Mth.RAD_TO_DEG) - 90f);
-        setXRot(0f);
-        if (--fleeTicks <= 0) {
+        } else if (distance > Mth.square(SpectralConfig.hauntingVanishDistance()) || --stareTicks <= 0) {
             vanish(-1);
         }
     }
@@ -246,22 +242,6 @@ public class HauntingGhostEntity extends PlayerGhostEntity {
         return nearest;
     }
 
-    private int nextCastDelay() {
-        int min = SpectralConfig.hauntingCastMinTicks();
-        return min + random.nextInt(SpectralConfig.hauntingCastMaxTicks() - min + 1);
-    }
-
-    /** Wisps rising from both raised hands, as from a casting evoker's. Client only. */
-    private void castParticles() {
-        float angle = yBodyRot * Mth.DEG_TO_RAD + Mth.cos(tickCount * 0.6662f) * 0.25f;
-        double cos = Mth.cos(angle) * 0.6;
-        double sin = Mth.sin(angle) * 0.6;
-        ColorParticleOption particle = ColorParticleOption.create(ParticleTypes.ENTITY_EFFECT,
-                CAST_PARTICLE_COLOR[0], CAST_PARTICLE_COLOR[1], CAST_PARTICLE_COLOR[2]);
-        level().addParticle(particle, getX() + cos, getY() + 1.8, getZ() + sin, 0, 0, 0);
-        level().addParticle(particle, getX() - cos, getY() + 1.8, getZ() - sin, 0, 0, 0);
-    }
-
     // ---- A monster's ghost ----
 
     private void tickMonsterGhost(Mob owner) {
@@ -275,20 +255,13 @@ public class HauntingGhostEntity extends PlayerGhostEntity {
         } else {
             driftTo(spot, Math.max(DRIFT_SPEED, spot.distanceTo(position()) * 0.3));
         }
-        LivingEntity target = owner.getTarget();
-        if (target != null && target.isAlive()) {
-            lookAt(target);
-        } else {
-            setYRot(owner.getYHeadRot());
-            setXRot(owner.getXRot());
-        }
         if (hiddenTicks > 0) {
             if (--hiddenTicks == 0) {
                 setInvisible(false);
             }
             return;
         }
-        strengthen(owner);
+        haunt(owner);
     }
 
     /** Just behind and above the monster's shoulder. */
@@ -299,17 +272,40 @@ public class HauntingGhostEntity extends PlayerGhostEntity {
 
     // ---- Both ----
 
-    /** Every so often, lends Strength to the monsters near it (and its owner, if it's a monster). */
-    private void strengthen(@Nullable Mob owner) {
-        if (tickCount % STRENGTH_INTERVAL != 0) {
-            return;
+    /** Reaches out to the monster it haunts, healing it slowly and casting its spell every so often. */
+    private void haunt(Mob mob) {
+        entityData.set(HAUNTING, true);
+        lookAt(mob);
+        if (tickCount % HEAL_INTERVAL == 0 && mob.getHealth() < mob.getMaxHealth()) {
+            mob.heal(1f);
+            ((ServerLevel) level()).sendParticles(ColorParticleOption.create(ParticleTypes.ENTITY_EFFECT,
+                            HEAL_PARTICLE_COLOR[0], HEAL_PARTICLE_COLOR[1], HEAL_PARTICLE_COLOR[2]),
+                    mob.getX(), mob.getY(0.5), mob.getZ(), 4, mob.getBbWidth() / 2, mob.getBbHeight() / 4, mob.getBbWidth() / 2, 0);
         }
-        double radius = SpectralConfig.hauntingStrengthRadius();
-        int amplifier = SpectralConfig.hauntingStrengthLevel() - 1;
-        for (Mob monster : level().getEntitiesOfClass(Mob.class, getBoundingBox().inflate(radius),
-                m -> (m instanceof Enemy || m == owner) && m.isAlive() && m.distanceToSqr(this) <= radius * radius)) {
-            monster.addEffect(new MobEffectInstance(MobEffects.DAMAGE_BOOST, STRENGTH_TICKS, amplifier, true, true), this);
+        if (--castTimer <= 0) {
+            if (isCasting()) {
+                entityData.set(CASTING, false);
+                castTimer = nextCastDelay();
+            } else {
+                cast(mob);
+            }
         }
+    }
+
+    private int nextCastDelay() {
+        int min = SpectralConfig.hauntingCastMinTicks();
+        return min + random.nextInt(SpectralConfig.hauntingCastMaxTicks() - min + 1);
+    }
+
+    /** Wisps the colour of its spell rising from both raised hands, as from a casting evoker's. Client only. */
+    private void castParticles() {
+        float angle = yBodyRot * Mth.DEG_TO_RAD + Mth.cos(tickCount * 0.6662f) * 0.25f;
+        double cos = Mth.cos(angle) * 0.6;
+        double sin = Mth.sin(angle) * 0.6;
+        ColorParticleOption particle = ColorParticleOption.create(ParticleTypes.ENTITY_EFFECT,
+                FastColor.ARGB32.opaque(entityData.get(SPELL_COLOR)));
+        level().addParticle(particle, getX() + cos, getY() + 1.8, getZ() + sin, 0, 0, 0);
+        level().addParticle(particle, getX() - cos, getY() + 1.8, getZ() - sin, 0, 0, 0);
     }
 
     private void driftTo(Vec3 target, double speed) {

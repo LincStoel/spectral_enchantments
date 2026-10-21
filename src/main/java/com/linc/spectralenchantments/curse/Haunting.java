@@ -3,20 +3,31 @@ package com.linc.spectralenchantments.curse;
 import com.linc.spectralenchantments.ModEnchantments;
 import com.linc.spectralenchantments.ModEntities;
 import com.linc.spectralenchantments.SpectralConfig;
+import com.linc.spectralenchantments.SpectralEnchantments;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.WeakHashMap;
 import javax.annotation.Nullable;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.BiomeTags;
+import net.minecraft.tags.TagKey;
 import net.minecraft.util.Mth;
 import net.minecraft.util.RandomSource;
+import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
+import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
@@ -27,7 +38,9 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.common.util.FakePlayer;
+import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
 import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
+import net.neoforged.neoforge.event.entity.living.FinalizeSpawnEvent;
 import net.neoforged.neoforge.event.entity.living.LivingChangeTargetEvent;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingEquipmentChangeEvent;
@@ -41,12 +54,15 @@ import net.neoforged.neoforge.event.tick.PlayerTickEvent;
  * <ul>
  *   <li>While a player wears armor with the curse, as soon as they put it on and every so often after, a
  *       {@link HauntingGhostEntity} of them appears
- *       somewhere in view, a little way off, to stare at them; and at once whenever a mob hurts them (unless they
+ *       standing somewhere in view, a little way off, to stare at them; and at once whenever a mob hurts them (unless they
  *       have just banished it). Checked once a second per player; finding a spot costs a few dozen collision checks
  *       and ray casts, once per appearance.</li>
- *   <li>A monster wearing it always has its ghost beside it. The ghost is sent out when the monster puts the armor
- *       on (which includes spawning in it, or being loaded with it), or picks a target without its ghost, so nothing
- *       is checked per tick.</li>
+ *   <li>A monster wearing it has its ghost beside it, unless there are already
+ *       {@link SpectralConfig#hauntingMonsterGhostCap() too many} monsters' ghosts about. The ghost is sent out when
+ *       the monster puts the armor on (which includes spawning in it, or being loaded with it), or picks a target
+ *       without its ghost, so nothing is checked per tick.</li>
+ *   <li>Monsters spawning in the Nether may wear a piece of haunted armor ({@link SpectralConfig#hauntingNetherChance()}):
+ *       those in {@link #NETHER_WEARERS}, on a piece from {@link #NETHER_ARMOR}.</li>
  * </ul>
  */
 public final class Haunting {
@@ -58,6 +74,18 @@ public final class Haunting {
     private static final int RETRY_TICKS = 100;
     private static final int SPOT_ATTEMPTS = 12;
     private static final int[] HEIGHTS = {0, 1, -1, 2, -2, 3, -3};
+    /** How far around a monster other monsters' ghosts count toward the cap, in blocks. */
+    private static final double GHOST_CAP_RADIUS = 32;
+    /** Monsters that may spawn in the Nether wearing haunted armor. */
+    public static final TagKey<EntityType<?>> NETHER_WEARERS =
+            TagKey.create(Registries.ENTITY_TYPE, SpectralEnchantments.id("haunting/nether_armor_wearers"));
+    /** The armor they may wear it on, one piece picked at random. */
+    public static final TagKey<Item> NETHER_ARMOR = TagKey.create(Registries.ITEM, SpectralEnchantments.id("haunting/nether_armor"));
+    /** Marks a monster that spawned to wear haunted armor, until it's in the world (see {@link #onFinalizeSpawn}). */
+    private static final String NETHER_ARMOR_MARK = SpectralEnchantments.MOD_ID + ":haunted_armor";
+    /** Spawns that aren't the world's doing, which never bring haunted armor. */
+    private static final Set<MobSpawnType> UNNATURAL_SPAWNS = EnumSet.of(MobSpawnType.COMMAND, MobSpawnType.SPAWN_EGG,
+            MobSpawnType.DISPENSER, MobSpawnType.BUCKET, MobSpawnType.CONVERSION, MobSpawnType.BREEDING);
 
     private Haunting() {}
 
@@ -195,7 +223,7 @@ public final class Haunting {
             return ghost;
         }
         ItemStack armor = cursedArmor(mob);
-        if (armor.isEmpty()) {
+        if (armor.isEmpty() || crowded(level, mob)) {
             return null;
         }
         ghost = HauntingGhostEntity.create(mob, armor);
@@ -204,6 +232,63 @@ public final class Haunting {
         }
         MONSTER_GHOSTS.put(mob, ghost);
         return ghost;
+    }
+
+    /** Whether there are already as many monsters' ghosts about {@code mob} as allowed. */
+    private static boolean crowded(ServerLevel level, Mob mob) {
+        return level.getEntitiesOfClass(HauntingGhostEntity.class, mob.getBoundingBox().inflate(GHOST_CAP_RADIUS),
+                ghost -> ghost.owner() instanceof Mob).size() >= SpectralConfig.hauntingMonsterGhostCap();
+    }
+
+    /**
+     * Rolls whether a monster spawning in the Nether will wear haunted armor. It's only marked here: its own equipment
+     * goes on after this, so it's dressed as it joins the world ({@link #onJoinLevel}). The mark is saved with it, for
+     * monsters placed as the world generates (in bastions, say).
+     */
+    @SubscribeEvent
+    public static void onFinalizeSpawn(FinalizeSpawnEvent event) {
+        Mob mob = event.getEntity();
+        if (!UNNATURAL_SPAWNS.contains(event.getSpawnType()) && mob.getType().is(NETHER_WEARERS)
+                && mob.getRandom().nextDouble() < SpectralConfig.hauntingNetherChance()
+                && event.getLevel().getBiome(BlockPos.containing(event.getX(), event.getY(), event.getZ())).is(BiomeTags.IS_NETHER)) {
+            mob.getPersistentData().putBoolean(NETHER_ARMOR_MARK, true);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onJoinLevel(EntityJoinLevelEvent event) {
+        if (event.getEntity() instanceof Mob mob && !event.getLevel().isClientSide()
+                && mob.getPersistentData().getBoolean(NETHER_ARMOR_MARK)) {
+            mob.getPersistentData().remove(NETHER_ARMOR_MARK);
+            wearHauntedArmor(mob);
+        }
+    }
+
+    /**
+     * Curses a random piece from {@link #NETHER_ARMOR} with Haunting and puts it on the monster; if it already wears
+     * armor in that slot, that piece is cursed instead.
+     */
+    public static void wearHauntedArmor(Mob mob) {
+        Holder<Enchantment> curse = ModEnchantments.holder(mob.level().registryAccess(), ModEnchantments.HAUNTING_CURSE);
+        if (curse == null || curse.is(ModEnchantments.DISABLED)) {
+            return;
+        }
+        Holder<Item> item = BuiltInRegistries.ITEM.getRandomElementOf(NETHER_ARMOR, mob.getRandom()).orElse(null);
+        if (item == null) {
+            return;
+        }
+        ItemStack armor = new ItemStack(item);
+        EquipmentSlot slot = mob.getEquipmentSlotForItem(armor);
+        if (slot.getType() != EquipmentSlot.Type.HUMANOID_ARMOR) {
+            return;
+        }
+        ItemStack worn = mob.getItemBySlot(slot);
+        if (worn.isEmpty()) {
+            armor.enchant(curse, 1);
+            mob.setItemSlot(slot, armor);
+        } else {
+            worn.enchant(curse, 1);
+        }
     }
 
     /** The ghost is gone (or unloaded): let go of it, and of its monster. */
@@ -248,7 +333,7 @@ public final class Haunting {
 
     /**
      * As {@link #appear}, but where no good spot can be found it appears straight ahead of the player instead, as far
-     * off as they can see (up to the stare distance).
+     * off as they can see (up to the stare distance), on the ground there if there's any close below.
      */
     @Nullable
     private static HauntingGhostEntity appearAnyway(ServerLevel level, Player player, ItemStack armor) {
@@ -261,13 +346,13 @@ public final class Haunting {
         Vec3 end = eye.add(ahead.scale(SpectralConfig.hauntingStareMaxDistance()));
         double distance = level.clip(new ClipContext(eye, end, ClipContext.Block.VISUAL, ClipContext.Fluid.NONE, player))
                 .getLocation().distanceTo(eye);
-        ghost = HauntingGhostEntity.create(player, armor, player.position().add(ahead.scale(Math.max(1, distance - 0.5))));
+        ghost = HauntingGhostEntity.create(player, armor, onGround(level, player.position().add(ahead.scale(Math.max(1, distance - 0.5)))));
         return level.addFreshEntity(ghost) ? ghost : null;
     }
 
     /**
-     * A spot between the stare distances from the player, in loaded chunks, where the ghost fits and can see the
-     * player's eyes; null if a few random tries find none.
+     * A spot between the stare distances from the player, in loaded chunks, where the ghost fits standing on a block
+     * and can see the player's eyes; null if a few random tries find none.
      */
     @Nullable
     private static Vec3 findSpot(ServerLevel level, Player player) {
@@ -287,7 +372,9 @@ public final class Haunting {
                     break;
                 }
                 AABB box = dimensions.makeBoundingBox(x, y, z);
-                if (!level.noCollision(box) || level.containsAnyLiquid(box)) {
+                BlockPos below = BlockPos.containing(x, y - 1, z);
+                if (!level.getBlockState(below).isFaceSturdy(level, below, Direction.UP) || !level.noCollision(box)
+                        || level.containsAnyLiquid(box)) {
                     continue;
                 }
                 Vec3 ghostEye = new Vec3(x, y + dimensions.eyeHeight(), z);
@@ -298,6 +385,18 @@ public final class Haunting {
             }
         }
         return null;
+    }
+
+    /** {@code pos} dropped onto the first block top within a few blocks below it, or {@code pos} itself if there's none. */
+    private static Vec3 onGround(ServerLevel level, Vec3 pos) {
+        BlockPos.MutableBlockPos below = BlockPos.containing(pos).mutable();
+        for (int i = 0; i < 4; i++) {
+            below.move(Direction.DOWN);
+            if (level.getBlockState(below).isFaceSturdy(level, below, Direction.UP)) {
+                return new Vec3(pos.x, below.getY() + 1, pos.z);
+            }
+        }
+        return pos;
     }
 
     private static int nextAppearance(RandomSource random) {

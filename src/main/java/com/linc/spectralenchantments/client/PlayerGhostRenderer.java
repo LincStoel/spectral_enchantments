@@ -30,8 +30,8 @@ import net.minecraft.util.Mth;
  * Draws a ghostly copy of a player (a Doppelganger's double, a Curse of Haunting's ghost): a pale {@link GhostSkins}
  * copy of a skin as a glowing ghost, white or the colour of a Quark rune etched on the enchanted armor. A double wears
  * its owner's skin; a haunting ghost (a player's or a monster's) is always Steve, with Herobrine's glowing white eyes.
- * A double idly sways (or plays a Quark emote); a haunting ghost turns to stare, now and then raising its arms like a
- * casting evoker. Shaderpacks draw the glowing type opaque, so with one active it uses the lit translucent type
+ * A double idly sways (or plays a Quark emote). A haunting ghost stands and stares, or floats by the monster it haunts
+ * as if slowly swimming to it, reaching out to it and now and then raising its arms like a casting evoker. Shaderpacks draw the glowing type opaque, so with one active it uses the lit translucent type
  * instead, as the other ghosts do.
  */
 final class PlayerGhostRenderer extends EntityRenderer<PlayerGhostEntity> {
@@ -76,7 +76,9 @@ final class PlayerGhostRenderer extends EntityRenderer<PlayerGhostEntity> {
             tint = scale(tint, SpectralClientConfig.shaderBrightness());
         }
         int color = FastColor.ARGB32.color((int) (visibility * GhostItemDraw.MAX_ALPHA * 255f), tint);
-        float hover = 0.04f + Mth.sin(age * 0.08f) * 0.03f;
+        HauntingGhostEntity haunting = ghost instanceof HauntingGhostEntity h ? h : null;
+        // A haunting ghost that isn't haunting stands on the ground.
+        float hover = haunting != null && !haunting.isHaunting() ? 0f : 0.04f + Mth.sin(age * 0.08f) * 0.03f;
         float swell = Mth.lerp(appear, 1.15f, 1f);
 
         PlayerSkin skin = skinOf(ghost);
@@ -95,7 +97,10 @@ final class PlayerGhostRenderer extends EntityRenderer<PlayerGhostEntity> {
         float lookPitch = ghost.stares() ? Mth.lerp(partialTick, ghost.xRotO, ghost.getXRot())
                 : Mth.sin(age * 0.013f + 1f) * 6f;
         model.setupAnim(ghost, 0f, 0f, age, lookYaw, lookPitch);
-        if (ghost instanceof HauntingGhostEntity haunting && haunting.isCasting()) {
+        if (haunting != null && haunting.isHaunting()) {
+            hauntingPose(model, age);
+        }
+        if (haunting != null && haunting.isCasting()) {
             castingPose(model, age);
         }
         Object emote = QuarkEmotes.animate(ghost, model, armor, armorLegs);
@@ -113,7 +118,7 @@ final class PlayerGhostRenderer extends EntityRenderer<PlayerGhostEntity> {
         ResourceLocation texture = GhostSkins.get(skin.texture());
         RenderType type = shaderPack ? RenderType.entityTranslucent(texture) : RenderType.entityTranslucentEmissive(texture);
         model.renderToBuffer(poseStack, buffers.getBuffer(type), LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, color);
-        if (ghost instanceof HauntingGhostEntity) {
+        if (haunting != null) {
             glowingEyes(model, poseStack, buffers, visibility);
         }
         poseStack.popPose();
@@ -137,6 +142,32 @@ final class PlayerGhostRenderer extends EntityRenderer<PlayerGhostEntity> {
     /** A Doppelganger's double wears its owner's skin; a Curse of Haunting's ghost, a player's or a monster's, is always Steve. */
     private static PlayerSkin skinOf(PlayerGhostEntity ghost) {
         return ghost instanceof HauntingGhostEntity ? STEVE : skin(ghost.ownerId());
+    }
+
+    /**
+     * Floating as if slowly swimming to the monster it haunts: arms reaching out to it (following its gaze a little),
+     * drifting gently; legs trailing back, kicking softly by turns.
+     */
+    private static void hauntingPose(PlayerModel<?> model, float age) {
+        float reach = -Mth.HALF_PI + model.head.xRot * 0.5f;
+        float drift = age * 0.07f;
+        model.rightArm.xRot = reach + Mth.sin(drift) * 0.1f;
+        model.leftArm.xRot = reach + Mth.sin(drift + 2f) * 0.1f;
+        model.rightArm.yRot = -0.1f + Mth.cos(drift * 0.7f) * 0.06f;
+        model.leftArm.yRot = 0.1f - Mth.cos(drift * 0.7f + 1f) * 0.06f;
+        model.rightArm.zRot = 0.05f;
+        model.leftArm.zRot = -0.05f;
+        float kick = Mth.sin(age * 0.12f) * 0.15f;
+        model.rightLeg.xRot = 0.3f + kick;
+        model.leftLeg.xRot = 0.3f - kick;
+        model.rightLeg.yRot = 0f;
+        model.leftLeg.yRot = 0f;
+        model.rightLeg.zRot = 0.04f;
+        model.leftLeg.zRot = -0.04f;
+        model.rightSleeve.copyFrom(model.rightArm);
+        model.leftSleeve.copyFrom(model.leftArm);
+        model.rightPants.copyFrom(model.rightLeg);
+        model.leftPants.copyFrom(model.leftLeg);
     }
 
     /** Both arms raised out to the sides and waving, as an evoker's when it casts a spell (IllagerModel's pose). */

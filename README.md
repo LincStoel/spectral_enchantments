@@ -144,14 +144,16 @@ The evil alter ego of the animated weapon enchantment.
 
 Is that you herobrine?
 
-- While the player wears armor with this curse, a pale ghost of them appears when they put the armor on, and again every 3 to 8 minutes. It appears 12 to 20 blocks away, somewhere it can see the player, and stares at them for 30 seconds.
+- While the player wears armor with this curse, a pale ghost of them appears when they put the armor on, and again every 3 to 8 minutes. It stands on a block 12 to 20 blocks away, somewhere it can see the player, and stares at them for 30 seconds.
 - The ghost also appears immediately behind any mob that hurts the player.
-- If the player comes within 8 blocks, the ghost flees and disappears.
-- When monsters are within 16 blocks of the player, the ghost moves to them and gives Strength I to every monster within 6 blocks of it.
+- If the player comes within 8 blocks of a staring ghost, or goes more than 32 blocks from it, it vanishes in a puff.
+- When monsters are within 16 blocks of the player, the ghost floats over and haunts the nearest one, reaching out to it as if slowly swimming toward it. The haunted monster slowly heals (like Regeneration I, undead included), and every 4 to 10 seconds the ghost raises its arms like an evoker casting a spell, giving it and every monster within 5 blocks of it Speed, Strength or Resistance I for 15 seconds. Once the monsters are gone, so is the ghost.
 - Hitting the ghost (melee or projectile) banishes it for 10 to 20 seconds. Monsters' projectiles pass through it, and monsters ignore it.
-- The ghost looks like Steve with glowing white eyes. Now and then it raises its arms like an evoker casting a spell.
-- Monsters can spawn wearing armor with this curse. Such a monster has its own ghost at its shoulder that gives Strength to monsters around it. This can be turned off with `monsterGhosts`.
-- All timings, distances and the Strength level are configurable.
+- The ghost looks like Steve with glowing white eyes.
+- Monsters can spawn wearing armor with this curse, and in the Nether 2% of armor-wearing monsters (zombified piglins, piglins, wither skeletons and the like) spawn with a piece of leather, chainmail, iron or gold armor carrying it. If they already wear armor in that slot, that piece gets the curse instead.
+- Such a monster has its own ghost at its shoulder that haunts it the same way. At most 4 monster ghosts appear within 32 blocks of each other, so mob farms don't fill with ghosts. Monster ghosts can be turned off with `monsterGhosts`.
+- All timings, distances and the spell's effect level and length are configurable.
+- Tags for customising the Nether spawns: `spectral_enchantments:haunting/nether_armor_wearers` (entity types) and `spectral_enchantments:haunting/nether_armor` (the armor pieces it can add).
 
 ## Curse mechanics
 
@@ -228,7 +230,7 @@ Also `enchantmentStudy.enabled` (turns off studying and copying), `enchantmentSt
 | `doppelganger` | `lureRadius` 16, `maxDistance` 32, `cooldownTicks` 20, `emoteMinSeconds` 5, `emoteMaxSeconds` 20 |
 | `curses` | `hideUntilHeld` true, `cursedSeconds` 60 |
 | `possessionCurse` | `healthPerDurability` 0.05, `minHealth` 6, `maxHealth` 40, `healthPerHardness` 4.0, `itemHealth` 1.0, `armor` 2.0, `damageMultiplier` 1.0, `dropChance` 0.1, `dropDurability` 0.05 |
-| `hauntingCurse` | `appearMinSeconds` 180, `appearMaxSeconds` 480, `stareSeconds` 30, `stareMinDistance` 12, `stareMaxDistance` 20, `approachDistance` 8, `monsterRadius` 16, `strengthRadius` 6, `strengthLevel` 1, `banishMinSeconds` 10, `banishMaxSeconds` 20, `castMinSeconds` 8, `castMaxSeconds` 20, `monsterGhosts` true |
+| `hauntingCurse` | `appearMinSeconds` 180, `appearMaxSeconds` 480, `stareSeconds` 30, `stareMinDistance` 12, `stareMaxDistance` 20, `approachDistance` 8, `vanishDistance` 32, `monsterRadius` 16, `buffRadius` 5, `buffLevel` 1, `buffSeconds` 15, `banishMinSeconds` 10, `banishMaxSeconds` 20, `castMinSeconds` 4, `castMaxSeconds` 10, `monsterGhosts` true, `monsterGhostCap` 4, `netherChance` 0.02 |
 | `enchantmentStudy` | `studying` and `copying` each: `curseChanceMax` 0.1 (at level 0), `curseChanceMin` 0.0005, `curseChanceMinLevel` 30, `xpCost` 27, `durationTicks` 40; `treasureMultiplier` 2.0 |
 
 Invalid values are reset to their defaults.

@@ -10,6 +10,7 @@ import com.linc.spectralenchantments.curse.HauntingGhostEntity;
 import com.mojang.authlib.GameProfile;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.Holder;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.gametest.framework.GameTest;
@@ -28,6 +29,7 @@ import net.minecraft.world.item.enchantment.Enchantment;
 import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.common.util.FakePlayer;
 import net.neoforged.neoforge.common.util.FakePlayerFactory;
 import net.neoforged.neoforge.gametest.GameTestHolder;
@@ -80,6 +82,11 @@ public final class HauntingGameTests {
                 && distance <= SpectralConfig.hauntingStareMaxDistance() + 0.01, "It appears a way off: " + distance);
         helper.assertTrue(player.getUUID().equals(ghost.ownerId()), "It's the player's own ghost");
         helper.assertFalse(ghost.canBeSeenAsEnemy(), "Monsters pay it no mind");
+        BlockPos below = BlockPos.containing(ghost.getX(), ghost.getY() - 1, ghost.getZ());
+        helper.assertTrue(Math.abs(ghost.getY() - Math.round(ghost.getY())) < 0.01
+                && helper.getLevel().getBlockState(below).isFaceSturdy(helper.getLevel(), below, Direction.UP),
+                "It stands on a block");
+        helper.assertFalse(ghost.isHaunting(), "With no monsters about, it isn't haunting");
 
         helper.runAfterDelay(2, () -> {
             float yaw = (float) Math.toDegrees(Math.atan2(player.getZ() - ghost.getZ(), player.getX() - ghost.getX())) - 90f;
@@ -107,22 +114,32 @@ public final class HauntingGameTests {
     }
 
     @GameTest(template = "haunting_arena", batch = "haunting")
-    public static void approachingMakesItFlee(GameTestHelper helper) {
+    public static void approachingMakesItVanish(GameTestHelper helper) {
         FakePlayer player = player(helper, haunted(helper, Items.IRON_CHESTPLATE));
         Haunting.update(player, FOREVER);
         HauntingGhostEntity ghost = Haunting.ghostOf(player);
         helper.assertTrue(ghost != null, "The ghost appears");
         player.moveTo(ghost.getX() + 2, ghost.getY(), ghost.getZ());
-        double start = ghost.distanceTo(player);
-        helper.runAfterDelay(3, () -> {
-            helper.assertTrue(ghost.isFleeing(), "Coming close sends it fleeing");
-            helper.assertTrue(ghost.distanceTo(player) > start, "It runs away from the player");
-        });
-        helper.runAfterDelay(25, () -> {
-            helper.assertTrue(ghost.isRemoved(), "After a second it's gone");
+        helper.runAfterDelay(2, () -> {
+            helper.assertTrue(ghost.isRemoved(), "Coming close makes it vanish");
             Haunting.update(player, 0);
             helper.assertTrue(Haunting.ghostOf(player) == null, "It doesn't come straight back");
             helper.assertTrue(Haunting.timer(player) >= SpectralConfig.hauntingAppearMinTicks(), "It comes back after the usual wait");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "haunting_arena", batch = "haunting")
+    public static void goingFarMakesItVanish(GameTestHelper helper) {
+        FakePlayer player = player(helper, haunted(helper, Items.IRON_CHESTPLATE));
+        Haunting.update(player, FOREVER);
+        HauntingGhostEntity ghost = Haunting.ghostOf(player);
+        helper.assertTrue(ghost != null, "The ghost appears");
+        Vec3 away = player.position().subtract(ghost.position()).multiply(1, 0, 1).normalize();
+        Vec3 far = ghost.position().add(away.scale(SpectralConfig.hauntingVanishDistance() + 2));
+        player.moveTo(far.x, player.getY(), far.z);
+        helper.runAfterDelay(2, () -> {
+            helper.assertTrue(ghost.isRemoved(), "Going far from it makes it vanish");
             helper.succeed();
         });
     }
@@ -146,22 +163,6 @@ public final class HauntingGameTests {
     }
 
     @GameTest(template = "haunting_arena", batch = "haunting")
-    public static void itRaisesItsArmsLikeAnEvoker(GameTestHelper helper) {
-        FakePlayer player = player(helper, haunted(helper, Items.IRON_HELMET));
-        Haunting.update(player, FOREVER);
-        HauntingGhostEntity ghost = Haunting.ghostOf(player);
-        helper.assertTrue(ghost != null, "The ghost appears");
-        helper.assertFalse(ghost.isCasting(), "It doesn't start out casting");
-        ghost.startCasting();
-        helper.assertTrue(ghost.isCasting(), "It raises its arms");
-        helper.runAfterDelay(HauntingGhostEntity.CAST_TICKS + 2, () -> {
-            helper.assertFalse(ghost.isCasting(), "...and lowers them again after a couple of seconds");
-            helper.assertTrue(ghost.isAlive(), "...still staring");
-            helper.succeed();
-        });
-    }
-
-    @GameTest(template = "haunting_arena", batch = "haunting")
     public static void nothingInCreativeOrWithoutTheCurse(GameTestHelper helper) {
         FakePlayer plain = player(helper, new ItemStack(Items.IRON_HELMET));
         Haunting.update(plain, FOREVER);
@@ -181,17 +182,56 @@ public final class HauntingGameTests {
     }
 
     @GameTest(template = "haunting_arena", batch = "haunting_monsters", timeoutTicks = 200)
-    public static void itStrengthensMonstersNearby(GameTestHelper helper) {
+    public static void itHauntsMonstersNearby(GameTestHelper helper) {
         FakePlayer player = player(helper, haunted(helper, Items.IRON_HELMET));
         Haunting.update(player, FOREVER);
         HauntingGhostEntity ghost = Haunting.ghostOf(player);
         helper.assertTrue(ghost != null, "The ghost appears");
         Husk husk = helper.spawnWithNoFreeWill(EntityType.HUSK, new BlockPos(28, 2, 24));
+        husk.setHealth(10f);
         helper.succeedWhen(() -> {
-            helper.assertTrue(ghost.focus() == husk, "With a monster about, the ghost goes to it");
-            helper.assertTrue(ghost.distanceTo(husk) <= SpectralConfig.hauntingStrengthRadius(), "It floats near the monster");
-            helper.assertTrue(husk.hasEffect(MobEffects.DAMAGE_BOOST), "The monster is strengthened");
-            helper.assertFalse(ghost.isFleeing(), "Being close to the player while with monsters doesn't scare it off");
+            helper.assertTrue(ghost.focus() == husk && ghost.isHaunting(), "With a monster about, the ghost haunts it");
+            helper.assertTrue(ghost.distanceTo(husk) <= 3, "It floats by the monster");
+            helper.assertTrue(husk.getHealth() > 10f, "The monster slowly heals");
+            helper.assertTrue(ghost.isAlive(), "Being close to the player while with monsters doesn't scare it off");
+        });
+    }
+
+    @GameTest(template = "haunting_arena", batch = "haunting_monsters")
+    public static void itLeavesWhenItsMonstersAreGone(GameTestHelper helper) {
+        FakePlayer player = player(helper, haunted(helper, Items.IRON_HELMET));
+        Haunting.update(player, FOREVER);
+        HauntingGhostEntity ghost = Haunting.ghostOf(player);
+        helper.assertTrue(ghost != null, "The ghost appears");
+        Husk husk = helper.spawnWithNoFreeWill(EntityType.HUSK, new BlockPos(30, 2, 24));
+        helper.runAfterDelay(12, () -> {
+            helper.assertTrue(ghost.isHaunting(), "It haunts the monster");
+            husk.discard();
+            helper.runAfterDelay(12, () -> {
+                helper.assertTrue(ghost.isRemoved(), "With its monster gone, so is the ghost");
+                helper.succeed();
+            });
+        });
+    }
+
+    @GameTest(template = "haunting_arena", batch = "haunting_monsters", timeoutTicks = 200)
+    public static void itsSpellsAidMonstersNearby(GameTestHelper helper) {
+        Husk husk = helper.spawnWithNoFreeWill(EntityType.HUSK, new BlockPos(24, 2, 24));
+        Husk friend = helper.spawnWithNoFreeWill(EntityType.HUSK, new BlockPos(27, 2, 24));
+        Husk far = helper.spawnWithNoFreeWill(EntityType.HUSK, new BlockPos(24, 2, 40));
+        husk.setItemSlot(EquipmentSlot.HEAD, haunted(helper, Items.IRON_HELMET));
+        HauntingGhostEntity ghost = Haunting.summon(husk);
+        helper.assertTrue(ghost != null, "The monster's ghost is out");
+        helper.assertFalse(ghost.isCasting(), "It doesn't start out casting");
+        ghost.cast(husk);
+        helper.assertTrue(ghost.isCasting(), "It raises its arms");
+        helper.assertTrue(spelled(husk), "Its monster gets Speed, Strength or Resistance");
+        helper.assertTrue(spelled(friend), "...and so do monsters near it");
+        helper.assertFalse(spelled(far), "...but not those far off");
+        helper.runAfterDelay(HauntingGhostEntity.CAST_TICKS + 2, () -> {
+            helper.assertFalse(ghost.isCasting(), "...and lowers them again after a couple of seconds");
+            husk.setItemSlot(EquipmentSlot.HEAD, ItemStack.EMPTY);
+            helper.succeed();
         });
     }
 
@@ -211,7 +251,7 @@ public final class HauntingGameTests {
         helper.assertTrue(Haunting.provoke(player, husk) == null, "Only one ghost at a time");
 
         helper.runAfterDelay(25, () -> {
-            helper.assertTrue(ghost.isAlive() && !ghost.isFleeing(), "Close to the player but with a monster, it stays");
+            helper.assertTrue(ghost.isAlive() && ghost.isHaunting(), "Close to the player but with a monster, it stays");
             helper.assertTrue(ghost.focus() == husk, "It goes to the monster");
             ghost.hurt(helper.getLevel().damageSources().playerAttack(player), 1f);
             Haunting.update(player, 0);
@@ -225,18 +265,16 @@ public final class HauntingGameTests {
         helper.assertTrue(holder(helper, ModEnchantments.HAUNTING_CURSE).is(EnchantmentTags.ON_MOB_SPAWN_EQUIPMENT),
                 "Monsters can spawn wearing the curse");
         Husk husk = helper.spawnWithNoFreeWill(EntityType.HUSK, new BlockPos(24, 2, 24));
-        Husk friend = helper.spawnWithNoFreeWill(EntityType.HUSK, new BlockPos(27, 2, 24));
-        Husk far = helper.spawnWithNoFreeWill(EntityType.HUSK, new BlockPos(24, 2, 40));
         husk.setItemSlot(EquipmentSlot.HEAD, haunted(helper, Items.IRON_HELMET));
+        husk.setHealth(10f);
         helper.succeedWhen(() -> {
             HauntingGhostEntity ghost = Haunting.ghostOf(husk);
             helper.assertTrue(ghost != null, "Putting the armor on brings out the monster's ghost");
             helper.assertTrue(Math.abs(ghost.getBbHeight() - 1.8f) < 0.01, "It's a player-sized ghost (drawn as Steve)");
             helper.assertTrue(ghost.distanceTo(husk) < 3, "It stays by the monster");
             helper.assertFalse(ghost.canBeSeenAsEnemy(), "Monsters treat it as one of their own");
-            helper.assertTrue(husk.hasEffect(MobEffects.DAMAGE_BOOST), "Its monster is strengthened");
-            helper.assertTrue(friend.hasEffect(MobEffects.DAMAGE_BOOST), "...and so are monsters near it");
-            helper.assertFalse(far.hasEffect(MobEffects.DAMAGE_BOOST), "...but not those far off");
+            helper.assertTrue(ghost.isHaunting(), "It haunts its monster");
+            helper.assertTrue(husk.getHealth() > 10f, "...which slowly heals");
 
             FakePlayer player = player(helper, ItemStack.EMPTY);
             ghost.hurt(helper.getLevel().damageSources().playerAttack(player), 1f);
@@ -260,6 +298,43 @@ public final class HauntingGameTests {
         });
     }
 
+    /** In a batch of its own: its ghosts would count against other tests' monsters. */
+    @GameTest(template = "haunting_arena", batch = "haunting_cap")
+    public static void onlySoManyMonsterGhostsGatherInOnePlace(GameTestHelper helper) {
+        int cap = SpectralConfig.hauntingMonsterGhostCap();
+        for (int i = 0; i <= cap; i++) {
+            Husk husk = helper.spawnWithNoFreeWill(EntityType.HUSK, new BlockPos(20 + 2 * i, 2, 24));
+            husk.setItemSlot(EquipmentSlot.HEAD, haunted(helper, Items.IRON_HELMET));
+            HauntingGhostEntity ghost = Haunting.summon(husk);
+            if (i < cap) {
+                helper.assertTrue(ghost != null, "Up to the cap, each haunted monster has its ghost");
+            } else {
+                helper.assertTrue(ghost == null, "Past the cap, no more ghosts appear nearby");
+            }
+        }
+        helper.succeed();
+    }
+
+    @GameTest(template = "haunting_arena", batch = "haunting_cap")
+    public static void netherMonstersCanWearHauntedArmor(GameTestHelper helper) {
+        Husk bare = helper.spawnWithNoFreeWill(EntityType.HUSK, new BlockPos(24, 2, 24));
+        helper.assertTrue(bare.getType().is(Haunting.NETHER_WEARERS), "Armor-wearing monsters can get it");
+        Haunting.wearHauntedArmor(bare);
+        helper.assertFalse(Haunting.cursedArmor(bare).isEmpty(), "A monster is dressed in a haunted piece");
+        helper.assertTrue(Haunting.cursedArmor(bare).is(Haunting.NETHER_ARMOR), "...of the Nether armor");
+
+        Husk dressed = helper.spawnWithNoFreeWill(EntityType.HUSK, new BlockPos(28, 2, 24));
+        dressed.setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.DIAMOND_HELMET));
+        dressed.setItemSlot(EquipmentSlot.CHEST, new ItemStack(Items.DIAMOND_CHESTPLATE));
+        dressed.setItemSlot(EquipmentSlot.LEGS, new ItemStack(Items.DIAMOND_LEGGINGS));
+        dressed.setItemSlot(EquipmentSlot.FEET, new ItemStack(Items.DIAMOND_BOOTS));
+        Haunting.wearHauntedArmor(dressed);
+        ItemStack cursed = Haunting.cursedArmor(dressed);
+        helper.assertTrue(!cursed.isEmpty() && !cursed.is(Haunting.NETHER_ARMOR),
+                "A monster already in armor has that piece cursed instead");
+        helper.succeed();
+    }
+
     private static FakePlayer player(GameTestHelper helper, ItemStack armor) {
         FakePlayer player = FakePlayerFactory.get(helper.getLevel(), new GameProfile(UUID.randomUUID(), "haunting_test"));
         BlockPos pos = helper.absolutePos(PLAYER_POS);
@@ -270,6 +345,12 @@ public final class HauntingGameTests {
             player.setItemSlot(player.getEquipmentSlotForItem(armor), armor);
         }
         return player;
+    }
+
+    /** Whether the monster has one of the effects a ghost's spell gives. */
+    private static boolean spelled(Husk husk) {
+        return husk.hasEffect(MobEffects.MOVEMENT_SPEED) || husk.hasEffect(MobEffects.DAMAGE_BOOST)
+                || husk.hasEffect(MobEffects.DAMAGE_RESISTANCE);
     }
 
     private static Holder<Enchantment> holder(GameTestHelper helper, ResourceKey<Enchantment> key) {

@@ -114,13 +114,17 @@ public final class SpectralConfig {
     private static final ModConfigSpec.IntValue HAUNTING_STARE_MAX_DISTANCE;
     private static final ModConfigSpec.IntValue HAUNTING_APPROACH_DISTANCE;
     private static final ModConfigSpec.IntValue HAUNTING_MONSTER_RADIUS;
-    private static final ModConfigSpec.IntValue HAUNTING_STRENGTH_RADIUS;
-    private static final ModConfigSpec.IntValue HAUNTING_STRENGTH_LEVEL;
+    private static final ModConfigSpec.IntValue HAUNTING_VANISH_DISTANCE;
+    private static final ModConfigSpec.IntValue HAUNTING_BUFF_RADIUS;
+    private static final ModConfigSpec.IntValue HAUNTING_BUFF_LEVEL;
+    private static final ModConfigSpec.IntValue HAUNTING_BUFF_SECONDS;
     private static final ModConfigSpec.IntValue HAUNTING_BANISH_MIN;
     private static final ModConfigSpec.IntValue HAUNTING_BANISH_MAX;
     private static final ModConfigSpec.IntValue HAUNTING_CAST_MIN;
     private static final ModConfigSpec.IntValue HAUNTING_CAST_MAX;
     private static final ModConfigSpec.BooleanValue HAUNTING_MONSTER_GHOSTS;
+    private static final ModConfigSpec.IntValue HAUNTING_MONSTER_GHOST_CAP;
+    private static final ModConfigSpec.DoubleValue HAUNTING_NETHER_CHANCE;
     private static final ModConfigSpec.DoubleValue STUDYING_CURSE_CHANCE_MAX;
     private static final ModConfigSpec.DoubleValue STUDYING_CURSE_CHANCE_MIN;
     private static final ModConfigSpec.IntValue STUDYING_CURSE_CHANCE_MIN_LEVEL;
@@ -497,7 +501,7 @@ public final class SpectralConfig {
                 .translation("spectral_enchantments.configuration.hauntingCurse.stareMaxDistance")
                 .defineInRange(List.of("hauntingCurse", "stareMaxDistance"), 20, 4, 64);
         HAUNTING_APPROACH_DISTANCE = server
-                .comment("How close the player can come to a staring ghost before it flees, in blocks. Always less than",
+                .comment("How close the player can come to a staring ghost before it vanishes, in blocks. Always less than",
                         "stareMinDistance.")
                 .translation("spectral_enchantments.configuration.hauntingCurse.approachDistance")
                 .defineInRange(List.of("hauntingCurse", "approachDistance"), 8, 1, 63);
@@ -505,14 +509,24 @@ public final class SpectralConfig {
                 .comment("How close to the player a monster must be for the ghost to leave off staring and go to it, in blocks.")
                 .translation("spectral_enchantments.configuration.hauntingCurse.monsterRadius")
                 .defineInRange(List.of("hauntingCurse", "monsterRadius"), 16, 1, 64);
-        HAUNTING_STRENGTH_RADIUS = server
-                .comment("How close to the ghost a monster must be to get Strength from it, in blocks.")
-                .translation("spectral_enchantments.configuration.hauntingCurse.strengthRadius")
-                .defineInRange(List.of("hauntingCurse", "strengthRadius"), 6, 1, 32);
-        HAUNTING_STRENGTH_LEVEL = server
-                .comment("The level of Strength the ghost gives monsters (1 is Strength I).")
-                .translation("spectral_enchantments.configuration.hauntingCurse.strengthLevel")
-                .defineInRange(List.of("hauntingCurse", "strengthLevel"), 1, 1, 5);
+        HAUNTING_VANISH_DISTANCE = server
+                .comment("How far the player can go from a staring ghost before it vanishes, in blocks. Always more than",
+                        "stareMaxDistance.")
+                .translation("spectral_enchantments.configuration.hauntingCurse.vanishDistance")
+                .defineInRange(List.of("hauntingCurse", "vanishDistance"), 32, 5, 128);
+        HAUNTING_BUFF_RADIUS = server
+                .comment("When the ghost casts its spell, how close to the monster it haunts other monsters must be to share its",
+                        "Speed, Strength or Resistance, in blocks.")
+                .translation("spectral_enchantments.configuration.hauntingCurse.buffRadius")
+                .defineInRange(List.of("hauntingCurse", "buffRadius"), 5, 0, 32);
+        HAUNTING_BUFF_LEVEL = server
+                .comment("The level of Speed, Strength or Resistance the ghost's spell gives (1 is level I).")
+                .translation("spectral_enchantments.configuration.hauntingCurse.buffLevel")
+                .defineInRange(List.of("hauntingCurse", "buffLevel"), 1, 1, 5);
+        HAUNTING_BUFF_SECONDS = server
+                .comment("How long the Speed, Strength or Resistance from the ghost's spell lasts, in seconds.")
+                .translation("spectral_enchantments.configuration.hauntingCurse.buffSeconds")
+                .defineInRange(List.of("hauntingCurse", "buffSeconds"), 15, 1, 600);
         HAUNTING_BANISH_MIN = server
                 .comment("When a player strikes the ghost, the shortest time it stays gone, in seconds.")
                 .translation("spectral_enchantments.configuration.hauntingCurse.banishMinSeconds")
@@ -523,19 +537,29 @@ public final class SpectralConfig {
                 .translation("spectral_enchantments.configuration.hauntingCurse.banishMaxSeconds")
                 .defineInRange(List.of("hauntingCurse", "banishMaxSeconds"), 20, 1, 600);
         HAUNTING_CAST_MIN = server
-                .comment("The shortest wait between a player's ghost raising its arms like an evoker casting a spell, in seconds.")
+                .comment("While haunting a monster, the shortest wait between the ghost raising its arms like an evoker casting a",
+                        "spell, in seconds.")
                 .translation("spectral_enchantments.configuration.hauntingCurse.castMinSeconds")
-                .defineInRange(List.of("hauntingCurse", "castMinSeconds"), 8, 1, 600);
+                .defineInRange(List.of("hauntingCurse", "castMinSeconds"), 4, 1, 600);
         HAUNTING_CAST_MAX = server
-                .comment("The longest wait between a player's ghost's spell-casting gestures, in seconds. Never less than",
-                        "castMinSeconds.")
+                .comment("The longest wait between the ghost's spells, in seconds. Never less than castMinSeconds.")
                 .translation("spectral_enchantments.configuration.hauntingCurse.castMaxSeconds")
-                .defineInRange(List.of("hauntingCurse", "castMaxSeconds"), 20, 1, 600);
+                .defineInRange(List.of("hauntingCurse", "castMaxSeconds"), 10, 1, 600);
         HAUNTING_MONSTER_GHOSTS = server
                 .comment("Whether a monster wearing armor with the Curse of Haunting has its own ghost beside it. Each ghost is an",
                         "extra entity, which adds up where many such monsters gather (mob farms).")
                 .translation("spectral_enchantments.configuration.hauntingCurse.monsterGhosts")
                 .define(List.of("hauntingCurse", "monsterGhosts"), true);
+        HAUNTING_MONSTER_GHOST_CAP = server
+                .comment("At most this many monsters' ghosts within 32 blocks of each other; past it, a haunted monster has no ghost",
+                        "(until it next picks a target with fewer about). Keeps mob farms from filling with ghosts.")
+                .translation("spectral_enchantments.configuration.hauntingCurse.monsterGhostCap")
+                .defineInRange(List.of("hauntingCurse", "monsterGhostCap"), 4, 1, 64);
+        HAUNTING_NETHER_CHANCE = server
+                .comment("The chance, from 0 to 1, that a monster spawning in the Nether wears a piece of armor with the Curse of",
+                        "Haunting, on top of the usual small chance anywhere.")
+                .translation("spectral_enchantments.configuration.hauntingCurse.netherChance")
+                .defineInRange(List.of("hauntingCurse", "netherChance"), 0.02, 0.0, 1.0);
         STUDYING_CURSE_CHANCE_MAX = server
                 .comment("The chance, from 0 to 1, that studying an item at level 0 writes a random curse instead of its enchantment.",
                         "The chance falls in a straight line from this to curseChanceMin as the player's level rises to",
@@ -942,7 +966,7 @@ public final class SpectralConfig {
         return Math.max(max, hauntingStareMinDistance());
     }
 
-    /** How close the player can come to a staring ghost before it flees; always below {@link #hauntingStareMinDistance()}. */
+    /** How close the player can come to a staring ghost before it vanishes; always below {@link #hauntingStareMinDistance()}. */
     public static int hauntingApproachDistance() {
         int distance = SERVER_SPEC.isLoaded() ? HAUNTING_APPROACH_DISTANCE.get() : HAUNTING_APPROACH_DISTANCE.getDefault();
         return Math.min(distance, hauntingStareMinDistance() - 1);
@@ -954,15 +978,25 @@ public final class SpectralConfig {
 
     /** How far from its owner the ghost can be before it goes: well past anywhere it would stare or haunt from. */
     public static int hauntingLeashDistance() {
-        return 2 * Math.max(hauntingStareMaxDistance(), hauntingMonsterRadius() + hauntingStrengthRadius());
+        return 2 * Math.max(hauntingVanishDistance(), hauntingMonsterRadius() + hauntingBuffRadius());
     }
 
-    public static int hauntingStrengthRadius() {
-        return SERVER_SPEC.isLoaded() ? HAUNTING_STRENGTH_RADIUS.get() : HAUNTING_STRENGTH_RADIUS.getDefault();
+    /** How far the player can go from a staring ghost before it vanishes; always above {@link #hauntingStareMaxDistance()}. */
+    public static int hauntingVanishDistance() {
+        int distance = SERVER_SPEC.isLoaded() ? HAUNTING_VANISH_DISTANCE.get() : HAUNTING_VANISH_DISTANCE.getDefault();
+        return Math.max(distance, hauntingStareMaxDistance() + 1);
     }
 
-    public static int hauntingStrengthLevel() {
-        return SERVER_SPEC.isLoaded() ? HAUNTING_STRENGTH_LEVEL.get() : HAUNTING_STRENGTH_LEVEL.getDefault();
+    public static int hauntingBuffRadius() {
+        return SERVER_SPEC.isLoaded() ? HAUNTING_BUFF_RADIUS.get() : HAUNTING_BUFF_RADIUS.getDefault();
+    }
+
+    public static int hauntingBuffLevel() {
+        return SERVER_SPEC.isLoaded() ? HAUNTING_BUFF_LEVEL.get() : HAUNTING_BUFF_LEVEL.getDefault();
+    }
+
+    public static int hauntingBuffTicks() {
+        return 20 * (SERVER_SPEC.isLoaded() ? HAUNTING_BUFF_SECONDS.get() : HAUNTING_BUFF_SECONDS.getDefault());
     }
 
     /** Shortest time a struck ghost stays gone, in ticks. */
@@ -976,12 +1010,12 @@ public final class SpectralConfig {
         return Math.max(max, hauntingBanishMinTicks());
     }
 
-    /** Shortest wait between a player's ghost's spell-casting gestures, in ticks. */
+    /** Shortest wait between the ghost's spells, in ticks. */
     public static int hauntingCastMinTicks() {
         return 20 * (SERVER_SPEC.isLoaded() ? HAUNTING_CAST_MIN.get() : HAUNTING_CAST_MIN.getDefault());
     }
 
-    /** Longest wait between a player's ghost's spell-casting gestures, in ticks; never below {@link #hauntingCastMinTicks()}. */
+    /** Longest wait between the ghost's spells, in ticks; never below {@link #hauntingCastMinTicks()}. */
     public static int hauntingCastMaxTicks() {
         int max = 20 * (SERVER_SPEC.isLoaded() ? HAUNTING_CAST_MAX.get() : HAUNTING_CAST_MAX.getDefault());
         return Math.max(max, hauntingCastMinTicks());
@@ -990,6 +1024,16 @@ public final class SpectralConfig {
     /** Whether monsters wearing the Curse of Haunting get ghosts of their own. */
     public static boolean hauntingMonsterGhosts() {
         return SERVER_SPEC.isLoaded() ? HAUNTING_MONSTER_GHOSTS.get() : HAUNTING_MONSTER_GHOSTS.getDefault();
+    }
+
+    /** Most monsters' ghosts allowed near each other. */
+    public static int hauntingMonsterGhostCap() {
+        return SERVER_SPEC.isLoaded() ? HAUNTING_MONSTER_GHOST_CAP.get() : HAUNTING_MONSTER_GHOST_CAP.getDefault();
+    }
+
+    /** Chance a monster spawning in the Nether wears haunted armor. */
+    public static double hauntingNetherChance() {
+        return SERVER_SPEC.isLoaded() ? HAUNTING_NETHER_CHANCE.get() : HAUNTING_NETHER_CHANCE.getDefault();
     }
 
     /** The chance that studying an item writes a curse instead, for a player at {@code level}. */

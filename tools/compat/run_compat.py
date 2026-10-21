@@ -597,12 +597,14 @@ def haunting_ghosts(s):
     return int(m.group(1)) if m else 0
 
 
-def has_strength(s, tag):
-    return "strength" in s.c(f"data get entity @e[tag={tag},limit=1] active_effects", quiet=True).lower()
+def has_spell(s, tag):
+    """Whether the mob has one of the effects a haunting ghost's spell gives."""
+    effects = s.c(f"data get entity @e[tag={tag},limit=1] active_effects", quiet=True).lower()
+    return any(f"minecraft:{e}" in effects for e in ("speed", "strength", "resistance"))
 
 
 def scenario_haunting(s):
-    """Curse of Haunting: a zombie in a haunted helmet has a ghost beside it, strengthening its friends; a haunted
+    """Curse of Haunting: a zombie in a haunted helmet has a ghost beside it, whose spells aid its friends; a haunted
     player's ghost comes out when the armor goes on, and again at once when a zombie strikes them."""
     s.c("fill -12 0 -4 12 10 24 air", quiet=True)
     s.c("kill @e[tag=hg_any]", quiet=True)
@@ -618,21 +620,22 @@ def scenario_haunting(s):
         f'ArmorItems:[{{}},{{}},{{}},{{id:"minecraft:iron_helmet",count:1,components:{HAUNTED}}}]}}', quiet=True)
     s.c('summon minecraft:zombie 3.5 0 14.5 {NoAI:1b,PersistenceRequired:1b,Rotation:[180f,0f],Tags:["hg_friend","hg_any"],'
         'ArmorItems:[{},{},{},{id:"minecraft:leather_helmet",count:1}]}', quiet=True)
-    time.sleep(3)
+    # The ghost casts its spell every 4-10 s.
+    time.sleep(11)
     check(haunting_ghosts(s) == 1, "[haunting] the haunted zombie has its ghost out")
-    check(has_strength(s, "hg_haunted") and has_strength(s, "hg_friend"), "[haunting] the ghost strengthens the zombies")
+    check(has_spell(s, "hg_haunted") and has_spell(s, "hg_friend"), "[haunting] the ghost's spell aids the zombies")
     shot(s, "Bot2", "haunting-zombie")
 
     s.c('item replace entity Bot1 armor.chest with minecraft:iron_chestplate'
         '[minecraft:enchantments={levels:{"spectral_enchantments:haunting_curse":1}},quark:rune_color="cyan"]', quiet=True)
     time.sleep(2)
     check(haunting_ghosts(s) == 2, "[haunting] putting the armor on brings out the player's ghost at once")
-    # It drifts over to the monster nearest the player (the haunted zombie) to lend it Strength.
+    # It floats over to the monster nearest the player (the haunted zombie) to haunt it.
     time.sleep(4)
     shot(s, "Bot2", "haunting-both")
     shot(s, "Bot1", "haunting-bot1-view")
-    # The player's ghost raises its arms like an evoker every 8-20 s, for 2 s: a frame every ~1.5 s catches it.
-    for i in range(16):
+    # The ghost raises its arms like an evoker every 4-10 s, for 2 s: a frame every ~1.5 s catches it.
+    for i in range(8):
         shot(s, "Bot2", f"haunting-cast{i:02d}")
 
     for bot in BOT_DIRS:
