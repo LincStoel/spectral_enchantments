@@ -1,0 +1,13 @@
+{
+  "entries": [
+    {
+      "enum": "net/minecraft/client/model/HumanoidModel$ArmPose",
+      "name": "SPECTRAL_ENCHANTMENTS_STUDY",
+      "constructor": "(ZLnet/neoforged/neoforge/client/IArmPoseTransformer;)V",
+      "parameters": {
+        "class": "com/linc/spectralenchantments/client/StudyArmPose",
+        "field": "STUDY"
+      }
+    }
+  ]
+}
