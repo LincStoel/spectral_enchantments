@@ -10,6 +10,8 @@
     "#spectral_enchantments:treasure_only/catapulting",
     "#spectral_enchantments:treasure_only/possession_curse",
     "#spectral_enchantments:treasure_only/doppelganger",
-    "#spectral_enchantments:treasure_only/haunting_curse"
+    "#spectral_enchantments:treasure_only/haunting_curse",
+    "#spectral_enchantments:treasure_only/high_jump",
+    "#spectral_enchantments:treasure_only/springy"
   ]
 }

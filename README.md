@@ -1,6 +1,6 @@
 # Spectral Enchantments
 
-A NeoForge mod adding eight enchantments and two curses. The theme of the mod centers around spectral copies of items and entities that aid or harm the player. Additionally, this mod hides curses until equipped meaning that you might actually interact with cursed items instead of just treating them as junk.
+A NeoForge mod adding ten enchantments and two curses. The theme of the mod centers around spectral copies of items and entities that aid or harm the player. Additionally, this mod hides curses until equipped meaning that you might actually interact with cursed items instead of just treating them as junk.
 
 - Minecraft 1.21.1
 - NeoForge 21.1.255 or later
@@ -10,16 +10,18 @@ A NeoForge mod adding eight enchantments and two curses. The theme of the mod ce
 
 | Enchantment | Applies to | Max level | Incompatible with | Treasure by default |
 |---|---|---|---|---|
-| Broad Breaker | Pickaxes, shovels | III | Far Miner | No |
-| Far Miner | Mining tools | III | Broad Breaker, Animated | No |
+| Broad Breaker | Pickaxes, shovels | III | Far Miner | Yes |
+| Far Miner | Mining tools | III | Broad Breaker, Animated | Yes |
 | Gather | Mining tools, melee weapons, bows, crossbows, tridents, maces | I | — | No |
 | Branch Finding | Hoes, shears | I | — | No |
 | Animated | Melee weapons (any item via anvil) | I | Far Miner, Loyalty | Yes |
-| Catapulting | Bows | I | — | No |
-| Explosive Bolts | Crossbows | I | — | No |
-| Doppelganger | Chestplates | I | Protection | No |
-| Curse of Possession | Melee weapons | I | — | Yes |
-| Curse of Haunting | Armor | I | — | Yes |
+| Catapulting | Bows | I | — | Yes |
+| Explosive Bolts | Crossbows | I | — | Yes |
+| Doppelganger | Chestplates | I | Protection | Yes |
+| High Jump | Boots | III | — | Yes |
+| Springy | Boots | I | Feather Falling | No |
+| Curse of Possession | Melee weapons | I | — | Always |
+| Curse of Haunting | Armor | I | — | Always |
 
 "Melee weapons" is the `spectral_enchantments:melee_weapons` item tag: swords, axes, maces, tridents and anything in the `c:swords`, `c:tools/melee_weapon`, `c:tools/spear` or `c:tools/mace` tags.
 
@@ -123,12 +125,32 @@ Radius, burn time and explosion power are configurable. Ammunition types are set
 
 Sneak away while a ghost doppelganger takes the heat!
 
-- Starting to sneak while wearing the chestplate leaves a ghostly double of the player behind. The double disappears when the player stops sneaking or moves more than 32 blocks away.
+- Starting to sneak on the ground while wearing the chestplate leaves a ghostly double of the player behind (sneaking in mid-air leaves it on landing). The double fades out over a second when the player stops sneaking, and disappears at once if they move more than 32 blocks away. It's almost invisible while the player stands inside it, filling in as they move 3 blocks away.
 - Monsters within 16 blocks of the double that are targeting the player switch to the double. This applies both to monsters already chasing the player and to ones that pick the player as a target later.
 - The double can't be hurt and doesn't move. The player's own attacks and projectiles pass through it. Monsters' projectiles stop at it.
 - It looks like the owner's skin, rendered pale and translucent.
 - 1-second cooldown between doubles (configurable).
 - With Quark installed, the double plays random Quark emotes.
+
+### High Jump
+
+Charge a leap like a horse.
+
+- Jumping is unchanged, but holding the key no longer jumps again on landing. Instead the horse jump bar takes the experience bar's place and charges just like a horse's: full at half a second, then sagging back a little if held longer. Letting go leaps.
+- A full charge leaps 2, 3 or 4 blocks high at levels I, II and III (configurable). Letting go early or late leaps less.
+- If the player holds on for 3 seconds (configurable), the bar goes away and letting go does nothing.
+- Dust puffs out from the ground as the player takes off.
+- The leap's extra height doesn't count toward fall damage on landing.
+
+### Springy
+
+Bounce off the ground instead of breaking your legs.
+
+- Landing from more than 3 blocks bounces the player instead of hurting them, in creative too. Straight down, they bounce back up three quarters of the height of the fall. Landing at an angle turns part of the bounce into forward speed.
+- Jumping just as they land (up to 3 ticks before, or the tick after) bounces them back up 95% of the fall instead.
+- Sneaking while landing takes the fall damage as usual, with no bounce. Blocks that already cancel fall damage don't bounce either, nor do blocks in the `spectral_enchantments:springy_ignored` tag (slime blocks by default).
+- While falling, a translucent ghost slime gathers from slime flecks around the player's boots. It squashes and springs each time they land and bounce, and bursts in a splash once they land without bouncing. It keeps a slime's own green unless the boots carry a Quark rune.
+- The minimum fall, bounce heights, timing window and fastest bounce are configurable.
 
 ### Curse of Possession
 
@@ -180,7 +202,7 @@ Both start with a blank book and quill on a lectern. When done, it becomes an en
 
 ## Obtaining
 
-- **Enchanting table:** all non-treasure enchantments.
+- **Enchanting table:** Gather (uncommon), Branch Finding and Springy (rare) by default; any other enchantment with `treasure_only` set to false (very rare). Curses never.
 - **Treasure loot, enchanted-book loot and villager trades:** all enchantments. Treasure-only enchantments cost double in trades, as Mending does.
 - **Villager Trade Rebalance experiment:** each enchantment is added to one biome's librarian trades.
 
@@ -191,9 +213,9 @@ Both start with a blank book and quill on a lectern. When done, it becomes an en
 | Jungle | Branch Finding |
 | Taiga (special) | Animated |
 | Taiga | Doppelganger |
-| Savanna | Catapulting |
+| Savanna | Catapulting, High Jump |
 | Desert | Explosive Bolts |
-| Swamp | Curse of Possession, Curse of Haunting |
+| Swamp | Curse of Possession, Curse of Haunting, Springy |
 
 - **Built-in data pack "Spectral Enchantments: Loot"** (enabled by default; can be disabled from the data pack list):
 
@@ -213,7 +235,7 @@ Loot entries for a disabled enchantment are not added.
 
 **Common** (`config/spectral_enchantments-common.toml`). Takes effect after a restart or `/reload`. For each enchantment:
 - `enabled`: when false, the enchantment stays registered so existing items keep it, but it does nothing and no longer appears in enchanting tables, loot, trades or recipes.
-- `treasure_only`: when true, the enchantment can't be rolled at the enchanting table and is found like Mending instead.
+- `treasure_only`: when true, the enchantment can't be rolled at the enchanting table and is found like Mending instead. Curses have no such setting: like vanilla's, they are always treasure.
 
 Also `enchantmentStudy.enabled` (turns off studying and copying), `enchantmentStudy.studying.enabled` and `enchantmentStudy.copying.enabled`, all true. These take effect at once.
 
@@ -228,6 +250,8 @@ Also `enchantmentStudy.enabled` (turns off studying and copying), `enchantmentSt
 | `catapulting` | `bowDurabilityCost` 2, `weaponDurabilityCost` 1, `rarityHearts` [1, 2, 3, 4], `placeBlocks` true, `useItems` true, `explodeCrystals` true, `physicsBlocks` false |
 | `explosiveBolts` | `blazeFireRadius` 3, `blazeBurnSeconds` 5, `ghastExplosionPower` 1, `waterDouseRadius` 4 |
 | `doppelganger` | `lureRadius` 16, `maxDistance` 32, `cooldownTicks` 20, `emoteMinSeconds` 5, `emoteMaxSeconds` 20 |
+| `highJump` | `heights` [2.0, 3.0, 4.0] (1.25 to 16), `chargeTimeoutTicks` 60 |
+| `springy` | `minFallDistance` 3.0, `restitution` 0.75, `perfectRestitution` 0.95, `perfectWindowTicks` 3, `maxBounceSpeed` 2.0 |
 | `curses` | `hideUntilHeld` true, `cursedSeconds` 60 |
 | `possessionCurse` | `healthPerDurability` 0.05, `minHealth` 6, `maxHealth` 40, `healthPerHardness` 4.0, `itemHealth` 1.0, `armor` 2.0, `damageMultiplier` 1.0, `dropChance` 0.1, `dropDurability` 0.05 |
 | `hauntingCurse` | `appearMinSeconds` 180, `appearMaxSeconds` 480, `stareSeconds` 30, `stareMinDistance` 12, `stareMaxDistance` 20, `approachDistance` 8, `vanishDistance` 32, `monsterRadius` 16, `buffRadius` 5, `buffLevel` 1, `buffSeconds` 15, `banishMinSeconds` 10, `banishMaxSeconds` 20, `castMinSeconds` 4, `castMaxSeconds` 10, `monsterGhosts` true, `monsterGhostCap` 4, `netherChance` 0.02 |

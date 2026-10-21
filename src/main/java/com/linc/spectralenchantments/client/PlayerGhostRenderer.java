@@ -2,6 +2,7 @@ package com.linc.spectralenchantments.client;
 
 import com.linc.spectralenchantments.SpectralEnchantments;
 import com.linc.spectralenchantments.curse.HauntingGhostEntity;
+import com.linc.spectralenchantments.doppelganger.DoppelgangerEntity;
 import com.linc.spectralenchantments.doppelganger.PlayerGhostEntity;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.math.Axis;
@@ -25,18 +26,25 @@ import net.minecraft.client.resources.PlayerSkin;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FastColor;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.player.Player;
 
 /**
  * Draws a ghostly copy of a player (a Doppelganger's double, a Curse of Haunting's ghost): a pale {@link GhostSkins}
  * copy of a skin as a glowing ghost, white or the colour of a Quark rune etched on the enchanted armor. A double wears
  * its owner's skin; a haunting ghost (a player's or a monster's) is always Steve, with Herobrine's glowing white eyes.
- * A double idly sways (or plays a Quark emote). A haunting ghost stands and stares, or floats by the monster it haunts
+ * A double idly sways (or plays a Quark emote), all but invisible while its owner stands in it, filling in as they move
+ * {@link #OWNER_FADE_END} blocks away, and fades away as it goes. A haunting ghost stands and stares, or floats by the monster it haunts
  * as if slowly swimming to it, reaching out to it and now and then raising its arms like a casting evoker. Shaderpacks draw the glowing type opaque, so with one active it uses the lit translucent type
  * instead, as the other ghosts do.
  */
 final class PlayerGhostRenderer extends EntityRenderer<PlayerGhostEntity> {
     /** Ticks the double takes to fade in. */
     private static final float APPEAR_TICKS = 6f;
+    /** A double is at its faintest, {@link #OWNER_FADE_MIN}, with its owner within this many blocks of it... */
+    private static final float OWNER_FADE_START = 0.5f;
+    /** ...and in full this many blocks away. */
+    private static final float OWNER_FADE_END = 3f;
+    private static final float OWNER_FADE_MIN = 0.06f;
     /** Vanilla's Steve, in the wide model: a haunting ghost wears him, whoever it haunts. */
     private static final PlayerSkin STEVE = new PlayerSkin(
             ResourceLocation.withDefaultNamespace("textures/entity/player/wide/steve.png"), null, null, null, PlayerSkin.Model.WIDE, true);
@@ -71,6 +79,10 @@ final class PlayerGhostRenderer extends EntityRenderer<PlayerGhostEntity> {
         float appear = Mth.clamp(age / APPEAR_TICKS, 0f, 1f);
         double cameraDistance = Math.sqrt(entityRenderDispatcher.distanceToSqr(ghost));
         float visibility = appear * GhostItemDraw.nearFade(cameraDistance);
+        if (ghost instanceof DoppelgangerEntity doppelganger) {
+            visibility = appear * Math.min(GhostItemDraw.nearFade(cameraDistance), ownerFade(doppelganger, partialTick))
+                    * doppelganger.fadeVisibility(partialTick);
+        }
         int tint = GhostTint.of(ghost.tintItem(), age);
         if (shaderPack) {
             tint = scale(tint, SpectralClientConfig.shaderBrightness());
@@ -137,6 +149,18 @@ final class PlayerGhostRenderer extends EntityRenderer<PlayerGhostEntity> {
         model.renderToBuffer(poseStack, buffers.getBuffer(RenderType.eyes(HAUNTING_EYES)), LightTexture.FULL_BRIGHT,
                 OverlayTexture.NO_OVERLAY, white);
         model.setAllVisible(true);
+    }
+
+    /** {@link #OWNER_FADE_MIN} with the owner standing in their double, easing up to 1 at {@link #OWNER_FADE_END} blocks. */
+    private static float ownerFade(DoppelgangerEntity ghost, float partialTick) {
+        UUID ownerId = ghost.ownerId();
+        Player owner = ownerId == null ? null : ghost.level().getPlayerByUUID(ownerId);
+        if (owner == null) {
+            return 1f;
+        }
+        double distance = owner.getPosition(partialTick).distanceTo(ghost.getPosition(partialTick));
+        float t = Mth.clamp((float) (distance - OWNER_FADE_START) / (OWNER_FADE_END - OWNER_FADE_START), 0f, 1f);
+        return Mth.lerp(t * t * (3f - 2f * t), OWNER_FADE_MIN, 1f);
     }
 
     /** A Doppelganger's double wears its owner's skin; a Curse of Haunting's ghost, a player's or a monster's, is always Steve. */

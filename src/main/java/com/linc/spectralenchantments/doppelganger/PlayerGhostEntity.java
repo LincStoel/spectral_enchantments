@@ -91,11 +91,16 @@ public abstract class PlayerGhostEntity extends LivingEntity {
     /** Vanishes in a puff of white smoke (not when it's merely unloaded with its chunk). */
     @Override
     public void remove(RemovalReason reason) {
-        if (!isRemoved() && reason.shouldDestroy() && level() instanceof ServerLevel level) {
+        if (!isRemoved() && reason.shouldDestroy() && puffsOnRemoval() && level() instanceof ServerLevel level) {
             level.sendParticles(ParticleTypes.POOF, getX(), getY() + getBbHeight() / 2, getZ(), 24,
                     getBbWidth() / 2, getBbHeight() / 3, getBbWidth() / 2, 0.02);
         }
         super.remove(reason);
+    }
+
+    /** Whether it vanishes in a puff of smoke rather than having already faded away. */
+    protected boolean puffsOnRemoval() {
+        return true;
     }
 
     @Override

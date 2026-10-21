@@ -3,7 +3,7 @@
     "translate": "enchantment.spectral_enchantments.explosive_bolts"
   },
   "supported_items": "#spectral_enchantments:enchantable/explosive_bolts",
-  "weight": 2,
+  "weight": 1,
   "max_level": 1,
   "min_cost": {
     "base": 15,

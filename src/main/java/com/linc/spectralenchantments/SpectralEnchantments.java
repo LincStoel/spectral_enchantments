@@ -1,6 +1,8 @@
 package com.linc.spectralenchantments;
 
 import com.linc.spectralenchantments.animated.AnimatedManager;
+import com.linc.spectralenchantments.boots.HighJump;
+import com.linc.spectralenchantments.boots.Springy;
 import com.linc.spectralenchantments.catapult.Catapulting;
 import com.linc.spectralenchantments.compat.ArsNouveauCompat;
 import com.linc.spectralenchantments.compat.BetterCombatCompat;
@@ -52,6 +54,7 @@ public final class SpectralEnchantments {
         ModComponents.COMPONENTS.register(modBus);
         ModEffects.EFFECTS.register(modBus);
         ModAttachments.ATTACHMENT_TYPES.register(modBus);
+        ModCreativeTabs.TABS.register(modBus);
         modBus.addListener((EntityAttributeCreationEvent event) -> {
             event.put(ModEntities.POSSESSED_WEAPON.get(), PossessedWeaponEntity.createAttributes().build());
             event.put(ModEntities.DOPPELGANGER.get(), LivingEntity.createLivingAttributes().build());
@@ -70,6 +73,8 @@ public final class SpectralEnchantments {
         NeoForge.EVENT_BUS.register(Doppelganger.class);
         NeoForge.EVENT_BUS.register(Curses.class);
         NeoForge.EVENT_BUS.register(Haunting.class);
+        NeoForge.EVENT_BUS.register(HighJump.class);
+        NeoForge.EVENT_BUS.register(Springy.class);
         NeoForge.EVENT_BUS.register(EnchantmentStudy.class);
         NeoForge.EVENT_BUS.addListener((TagsUpdatedEvent event) -> BetterCombatCompat.clearCache());
         ArsNouveauCompat.register();

@@ -26,8 +26,10 @@ public record EnchantmentTreasureOnlyCondition(EnchantmentEnabledCondition.Which
             case CATAPULTING -> SpectralConfig.catapultingEnabled() && SpectralConfig.catapultingTreasureOnly();
             case EXPLOSIVE_BOLTS -> SpectralConfig.explosiveBoltsEnabled() && SpectralConfig.explosiveBoltsTreasureOnly();
             case DOPPELGANGER -> SpectralConfig.doppelgangerEnabled() && SpectralConfig.doppelgangerTreasureOnly();
-            case POSSESSION_CURSE -> SpectralConfig.possessionCurseEnabled() && SpectralConfig.possessionCurseTreasureOnly();
-            case HAUNTING_CURSE -> SpectralConfig.hauntingCurseEnabled() && SpectralConfig.hauntingCurseTreasureOnly();
+            // Curses are always treasure, like vanilla's: the base data puts them there, with no overlay.
+            case POSSESSION_CURSE, HAUNTING_CURSE -> false;
+            case HIGH_JUMP -> SpectralConfig.highJumpEnabled() && SpectralConfig.highJumpTreasureOnly();
+            case SPRINGY -> SpectralConfig.springyEnabled() && SpectralConfig.springyTreasureOnly();
         };
     }
 

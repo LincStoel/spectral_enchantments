@@ -345,10 +345,10 @@ public final class CatapultingGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void notTreasureByDefault(GameTestHelper helper) {
+    public static void treasureOnlyByDefault(GameTestHelper helper) {
         Holder<Enchantment> catapulting = holder(helper, ModEnchantments.CATAPULTING);
-        helper.assertTrue(catapulting.is(EnchantmentTags.NON_TREASURE), "Catapulting rolls at the enchanting table");
-        helper.assertFalse(catapulting.is(EnchantmentTags.TREASURE), "Catapulting isn't treasure by default");
+        helper.assertTrue(catapulting.is(EnchantmentTags.TREASURE), "Catapulting is treasure by default");
+        helper.assertFalse(catapulting.is(EnchantmentTags.NON_TREASURE), "Catapulting doesn't roll at the enchanting table");
         helper.assertTrue(catapulting.value().isSupportedItem(new ItemStack(Items.BOW)), "Catapulting goes on bows");
         helper.assertFalse(catapulting.value().isSupportedItem(new ItemStack(Items.CROSSBOW)), "Catapulting doesn't go on crossbows");
         helper.succeed();

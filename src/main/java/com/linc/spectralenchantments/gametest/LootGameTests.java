@@ -39,7 +39,7 @@ public final class LootGameTests {
     private static final List<ResourceKey<Enchantment>> ALL = List.of(ModEnchantments.BROAD_BREAKER, ModEnchantments.FAR_MINER,
             ModEnchantments.GATHER, ModEnchantments.BRANCH_FINDING, ModEnchantments.ANIMATED, ModEnchantments.CATAPULTING,
             ModEnchantments.EXPLOSIVE_BOLTS, ModEnchantments.DOPPELGANGER, ModEnchantments.POSSESSION_CURSE,
-            ModEnchantments.HAUNTING_CURSE);
+            ModEnchantments.HAUNTING_CURSE, ModEnchantments.HIGH_JUMP, ModEnchantments.SPRINGY);
 
     private LootGameTests() {}
 

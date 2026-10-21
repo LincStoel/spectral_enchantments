@@ -7,6 +7,9 @@
     "AbstractContainerMenuMixin",
     "SlotMixin"
   ],
+  "client": [
+    "client.HumanoidModelMixin"
+  ],
   "injectors": {
     "defaultRequire": 1
   }

@@ -2,6 +2,7 @@ package com.linc.spectralenchantments.network;
 
 import com.linc.spectralenchantments.FarMiner;
 import com.linc.spectralenchantments.animated.AnimatedManager;
+import com.linc.spectralenchantments.boots.HighJump;
 import com.linc.spectralenchantments.client.BranchFindingClient;
 import com.linc.spectralenchantments.client.FarMinerClient;
 import com.linc.spectralenchantments.client.SpectralSessions;
@@ -46,6 +47,11 @@ public final class ModNetwork {
         registrar.playToServer(StudyReleasePayload.TYPE, StudyReleasePayload.STREAM_CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) {
                 EnchantmentStudy.release(player);
+            }
+        });
+        registrar.playToServer(HighJumpPayload.TYPE, HighJumpPayload.STREAM_CODEC, (payload, context) -> {
+            if (context.player() instanceof ServerPlayer player) {
+                HighJump.handle(player, payload);
             }
         });
         registrar.playToServer(AnimatedRecallPayload.TYPE, AnimatedRecallPayload.STREAM_CODEC, (payload, context) -> {

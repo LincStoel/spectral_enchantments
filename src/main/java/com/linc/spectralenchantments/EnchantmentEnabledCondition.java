@@ -26,7 +26,9 @@ public record EnchantmentEnabledCondition(Which enchantment) implements IConditi
         EXPLOSIVE_BOLTS("explosive_bolts"),
         DOPPELGANGER("doppelganger"),
         POSSESSION_CURSE("possession_curse"),
-        HAUNTING_CURSE("haunting_curse");
+        HAUNTING_CURSE("haunting_curse"),
+        HIGH_JUMP("high_jump"),
+        SPRINGY("springy");
 
         static final Codec<Which> CODEC = StringRepresentable.fromEnum(Which::values);
 
@@ -55,6 +57,8 @@ public record EnchantmentEnabledCondition(Which enchantment) implements IConditi
             case DOPPELGANGER -> SpectralConfig.doppelgangerEnabled();
             case POSSESSION_CURSE -> SpectralConfig.possessionCurseEnabled();
             case HAUNTING_CURSE -> SpectralConfig.hauntingCurseEnabled();
+            case HIGH_JUMP -> SpectralConfig.highJumpEnabled();
+            case SPRINGY -> SpectralConfig.springyEnabled();
         };
     }
 

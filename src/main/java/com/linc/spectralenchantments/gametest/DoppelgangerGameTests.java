@@ -37,7 +37,7 @@ public final class DoppelgangerGameTests {
     private DoppelgangerGameTests() {}
 
     @GameTest(template = "empty")
-    public static void sneakingLeavesADoubleUntilStandingUp(GameTestHelper helper) {
+    public static void sneakingLeavesADoubleThatFadesOnStandingUp(GameTestHelper helper) {
         FakePlayer player = player(helper, enchanted(helper, Items.IRON_CHESTPLATE));
         player.setShiftKeyDown(true);
         Doppelganger.update(player);
@@ -48,7 +48,23 @@ public final class DoppelgangerGameTests {
         helper.assertTrue(doubles(helper) == 1, "Staying crouched doesn't summon more doubles");
         player.setShiftKeyDown(false);
         Doppelganger.update(player);
-        helper.assertTrue(ghost.isRemoved() && Doppelganger.ghostOf(player) == null, "Standing up takes the double away");
+        helper.assertTrue(ghost.isFading() && Doppelganger.ghostOf(player) == null, "Standing up fades the double away");
+        helper.runAfterDelay(DoppelgangerEntity.FADE_TICKS + 2, () -> {
+            helper.assertTrue(ghost.isRemoved(), "The double is gone once it has faded");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = "empty")
+    public static void noDoubleUntilOnTheGround(GameTestHelper helper) {
+        FakePlayer player = player(helper, enchanted(helper, Items.IRON_CHESTPLATE));
+        player.setOnGround(false);
+        player.setShiftKeyDown(true);
+        Doppelganger.update(player);
+        helper.assertTrue(Doppelganger.ghostOf(player) == null, "Sneaking in the air leaves no double");
+        player.setOnGround(true);
+        Doppelganger.update(player);
+        helper.assertTrue(Doppelganger.ghostOf(player) != null, "Landing while still sneaking leaves the double");
         helper.succeed();
     }
 

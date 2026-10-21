@@ -104,11 +104,11 @@ public final class ExplosiveBoltsGameTests {
     }
 
     @GameTest(template = "empty")
-    public static void notTreasureByDefault(GameTestHelper helper) {
+    public static void treasureOnlyByDefault(GameTestHelper helper) {
         Holder<Enchantment> bolts = helper.getLevel().registryAccess().lookupOrThrow(Registries.ENCHANTMENT)
                 .getOrThrow(ModEnchantments.EXPLOSIVE_BOLTS);
-        helper.assertTrue(bolts.is(EnchantmentTags.NON_TREASURE), "Explosive Bolts rolls at the enchanting table");
-        helper.assertFalse(bolts.is(EnchantmentTags.TREASURE), "Explosive Bolts isn't treasure by default");
+        helper.assertTrue(bolts.is(EnchantmentTags.TREASURE), "Explosive Bolts is treasure by default");
+        helper.assertFalse(bolts.is(EnchantmentTags.NON_TREASURE), "Explosive Bolts doesn't roll at the enchanting table");
         helper.assertTrue(bolts.value().isSupportedItem(new ItemStack(Items.CROSSBOW)), "Explosive Bolts goes on crossbows");
         helper.assertFalse(bolts.value().isSupportedItem(new ItemStack(Items.BOW)), "Explosive Bolts doesn't go on bows");
         helper.succeed();

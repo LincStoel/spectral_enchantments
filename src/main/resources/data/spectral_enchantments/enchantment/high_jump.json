@@ -1,0 +1,20 @@
+{
+  "description": {
+    "translate": "enchantment.spectral_enchantments.high_jump"
+  },
+  "supported_items": "#spectral_enchantments:enchantable/high_jump",
+  "weight": 1,
+  "max_level": 3,
+  "min_cost": {
+    "base": 30,
+    "per_level_above_first": 100
+  },
+  "max_cost": {
+    "base": 80,
+    "per_level_above_first": 100
+  },
+  "anvil_cost": 4,
+  "slots": [
+    "feet"
+  ]
+}

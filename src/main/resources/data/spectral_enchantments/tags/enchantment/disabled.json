@@ -9,6 +9,8 @@
     "#spectral_enchantments:disabled/explosive_bolts",
     "#spectral_enchantments:disabled/doppelganger",
     "#spectral_enchantments:disabled/possession_curse",
-    "#spectral_enchantments:disabled/haunting_curse"
+    "#spectral_enchantments:disabled/haunting_curse",
+    "#spectral_enchantments:disabled/high_jump",
+    "#spectral_enchantments:disabled/springy"
   ]
 }

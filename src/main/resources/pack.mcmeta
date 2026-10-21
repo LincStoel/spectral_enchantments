@@ -229,19 +229,6 @@
           "min_inclusive": 0,
           "max_inclusive": 2147483647
         },
-        "directory": "overlay_treasure_possession_curse",
-        "neoforge:conditions": [
-          {
-            "type": "spectral_enchantments:enchantment_treasure_only",
-            "enchantment": "possession_curse"
-          }
-        ]
-      },
-      {
-        "formats": {
-          "min_inclusive": 0,
-          "max_inclusive": 2147483647
-        },
         "directory": "overlay_disable_doppelganger",
         "neoforge:conditions": [
           {
@@ -287,11 +274,56 @@
           "min_inclusive": 0,
           "max_inclusive": 2147483647
         },
-        "directory": "overlay_treasure_haunting_curse",
+        "directory": "overlay_disable_high_jump",
+        "neoforge:conditions": [
+          {
+            "type": "neoforge:not",
+            "value": {
+              "type": "spectral_enchantments:enchantment_enabled",
+              "enchantment": "high_jump"
+            }
+          }
+        ]
+      },
+      {
+        "formats": {
+          "min_inclusive": 0,
+          "max_inclusive": 2147483647
+        },
+        "directory": "overlay_treasure_high_jump",
         "neoforge:conditions": [
           {
             "type": "spectral_enchantments:enchantment_treasure_only",
-            "enchantment": "haunting_curse"
+            "enchantment": "high_jump"
+          }
+        ]
+      },
+      {
+        "formats": {
+          "min_inclusive": 0,
+          "max_inclusive": 2147483647
+        },
+        "directory": "overlay_disable_springy",
+        "neoforge:conditions": [
+          {
+            "type": "neoforge:not",
+            "value": {
+              "type": "spectral_enchantments:enchantment_enabled",
+              "enchantment": "springy"
+            }
+          }
+        ]
+      },
+      {
+        "formats": {
+          "min_inclusive": 0,
+          "max_inclusive": 2147483647
+        },
+        "directory": "overlay_treasure_springy",
+        "neoforge:conditions": [
+          {
+            "type": "spectral_enchantments:enchantment_treasure_only",
+            "enchantment": "springy"
           }
         ]
       }

@@ -1,0 +1,36 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "neoforge:mod_loaded",
+      "modid": "ars_nouveau"
+    },
+    {
+      "type": "spectral_enchantments:enchantment_enabled",
+      "enchantment": "springy"
+    }
+  ],
+  "type": "ars_nouveau:enchantment",
+  "enchantment": "spectral_enchantments:springy",
+  "level": 1,
+  "pedestalItems": [
+    {
+      "item": "ars_nouveau:source_gem_block"
+    },
+    {
+      "item": "ars_nouveau:source_gem_block"
+    },
+    {
+      "item": "ars_nouveau:air_essence"
+    },
+    {
+      "item": "ars_nouveau:air_essence"
+    },
+    {
+      "item": "minecraft:slime_block"
+    },
+    {
+      "item": "minecraft:phantom_membrane"
+    }
+  ],
+  "sourceCost": 3000
+}

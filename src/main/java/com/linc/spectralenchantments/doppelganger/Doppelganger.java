@@ -27,7 +27,8 @@ import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 
 /**
  * Server rules for the Doppelganger enchantment: starting to sneak in an enchanted chestplate leaves a
- * {@link DoppelgangerEntity} behind, which vanishes when the owner stands up. Monsters within
+ * {@link DoppelgangerEntity} behind (once the owner is on the ground, if they started in the air), which fades away
+ * when the owner stands up; the monsters already after it stay on it while it fades. Monsters within
  * {@link SpectralConfig#doppelgangerLureRadius()} of it that are after the owner go after it instead, both those
  * already chasing them when it appears and any that pick the owner later (caught as they choose their target, so
  * nothing is scanned per tick). A monster after the double that the owner hurts sees through the trick for good:
@@ -46,6 +47,8 @@ public final class Doppelganger {
         @Nullable
         DoppelgangerEntity ghost;
         boolean sneaking;
+        /** Sneaking began but no double was left yet, as the owner wasn't on the ground. */
+        boolean pending;
         /** Game time of the last double, or -1 before the first. */
         long lastSpawn = -1;
 
@@ -66,9 +69,16 @@ public final class Doppelganger {
         return entity.getTags().contains(IMMUNE_TAG);
     }
 
-    /** The owner's double, if it is still standing. */
+    /** The owner's double, if it is still standing and not fading away. */
     @Nullable
     public static DoppelgangerEntity ghostOf(Player player) {
+        DoppelgangerEntity ghost = anyGhostOf(player);
+        return ghost == null || ghost.isFading() ? null : ghost;
+    }
+
+    /** The owner's double, standing or fading away. */
+    @Nullable
+    private static DoppelgangerEntity anyGhostOf(Player player) {
         State state = STATES.get(player.getUUID());
         return state == null || state.ghost == null || state.ghost.isRemoved() ? null : state.ghost;
     }
@@ -81,7 +91,10 @@ public final class Doppelganger {
         }
     }
 
-    /** Leaves a double behind as {@code player} starts sneaking, and takes it away once they stop. */
+    /**
+     * Leaves a double behind as {@code player} starts sneaking (or lands, if they started in the air), and fades it
+     * away once they stop.
+     */
     public static void update(Player player) {
         boolean sneaking = player.isShiftKeyDown() && player.isAlive() && !player.isSpectator();
         State state = STATES.get(player.getUUID());
@@ -92,18 +105,32 @@ public final class Doppelganger {
             state = new State();
             STATES.put(player.getUUID(), state);
         }
-        boolean started = sneaking && !state.sneaking;
-        state.sneaking = sneaking;
-        if (state.ghost != null && (state.ghost.isRemoved() || !sneaking || !has(player))) {
-            state.clearGhost();
+        if (sneaking && !state.sneaking) {
+            state.pending = true;
+        } else if (!sneaking) {
+            state.pending = false;
         }
-        if (!started || !has(player) || !(player.level() instanceof ServerLevel level)) {
+        state.sneaking = sneaking;
+        if (state.ghost != null) {
+            if (state.ghost.isRemoved()) {
+                state.ghost = null;
+            } else if (!sneaking || !has(player)) {
+                state.ghost.fadeOut();
+            }
+        }
+        if (!state.pending || !player.onGround()) {
+            return;
+        }
+        state.pending = false;
+        if (!has(player) || !(player.level() instanceof ServerLevel level)) {
             return;
         }
         long now = level.getGameTime();
         if (state.lastSpawn >= 0 && now - state.lastSpawn < SpectralConfig.doppelgangerCooldownTicks()) {
             return;
         }
+        // One still fading away goes at once.
+        state.clearGhost();
         DoppelgangerEntity ghost = DoppelgangerEntity.create(player);
         if (level.addFreshEntity(ghost)) {
             state.ghost = ghost;
@@ -148,7 +175,7 @@ public final class Doppelganger {
                 || mob.level().isClientSide) {
             return;
         }
-        DoppelgangerEntity ghost = ghostOf(owner);
+        DoppelgangerEntity ghost = anyGhostOf(owner);
         if (ghost == null) {
             return;
         }

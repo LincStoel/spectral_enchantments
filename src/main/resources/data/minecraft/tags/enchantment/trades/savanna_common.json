@@ -2,6 +2,8 @@
   "replace": false,
   "values": [
     "#spectral_enchantments:non_treasure/catapulting",
-    "#spectral_enchantments:treasure_only/catapulting"
+    "#spectral_enchantments:treasure_only/catapulting",
+    "#spectral_enchantments:non_treasure/high_jump",
+    "#spectral_enchantments:treasure_only/high_jump"
   ]
 }

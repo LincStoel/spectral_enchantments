@@ -3,7 +3,7 @@
     "translate": "enchantment.spectral_enchantments.gather"
   },
   "supported_items": "#spectral_enchantments:enchantable/gather",
-  "weight": 2,
+  "weight": 5,
   "max_level": 1,
   "min_cost": {
     "base": 15,

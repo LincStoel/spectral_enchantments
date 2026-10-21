@@ -19,7 +19,7 @@ import net.neoforged.neoforge.common.ModConfigSpec;
  *       duration, search limit and cooldown, Animated's follow range, radii, deployment time and recall distance, Catapulting's
  *       durability costs, item damage and block placing, Explosive Bolts' fire spray and explosion, Doppelganger's
  *       lure radius, range, cooldown and emote timing, how curses are revealed and how long the Cursed effect lasts, the Curse of Possession's possessed weapons, and the
- *       Curse of Haunting's ghost, and the curse chances, experience costs and timing of studying and copying
+ *       Curse of Haunting's ghost, High Jump's heights and charge timeout, Springy's bounce, and the curse chances, experience costs and timing of studying and copying
  *       enchantments at a lectern.</li>
  * </ul>
  */
@@ -40,6 +40,10 @@ public final class SpectralConfig {
     /** Hearts a catapulted item deals for each rarity: common, uncommon, rare, epic. */
     private static final List<Double> DEFAULT_CATAPULT_RARITY_HEARTS = List.of(1.0, 2.0, 3.0, 4.0);
     private static final double MAX_CATAPULT_HEARTS = 100.0;
+    private static final List<Double> DEFAULT_HIGH_JUMP_HEIGHTS = List.of(2.0, 3.0, 4.0);
+    /** High Jump's heights start above a plain jump (about 1.25 blocks). */
+    private static final double MIN_HIGH_JUMP_HEIGHT = 1.25;
+    private static final double MAX_HIGH_JUMP_HEIGHT = 16.0;
 
     public static final ModConfigSpec COMMON_SPEC;
     private static final ModConfigSpec.BooleanValue BROAD_BREAKER_ENABLED;
@@ -59,9 +63,11 @@ public final class SpectralConfig {
     private static final ModConfigSpec.BooleanValue DOPPELGANGER_ENABLED;
     private static final ModConfigSpec.BooleanValue DOPPELGANGER_TREASURE_ONLY;
     private static final ModConfigSpec.BooleanValue POSSESSION_CURSE_ENABLED;
-    private static final ModConfigSpec.BooleanValue POSSESSION_CURSE_TREASURE_ONLY;
     private static final ModConfigSpec.BooleanValue HAUNTING_CURSE_ENABLED;
-    private static final ModConfigSpec.BooleanValue HAUNTING_CURSE_TREASURE_ONLY;
+    private static final ModConfigSpec.BooleanValue HIGH_JUMP_ENABLED;
+    private static final ModConfigSpec.BooleanValue HIGH_JUMP_TREASURE_ONLY;
+    private static final ModConfigSpec.BooleanValue SPRINGY_ENABLED;
+    private static final ModConfigSpec.BooleanValue SPRINGY_TREASURE_ONLY;
     private static final ModConfigSpec.BooleanValue STUDY_ENABLED;
     private static final ModConfigSpec.BooleanValue STUDYING_ENABLED;
     private static final ModConfigSpec.BooleanValue COPYING_ENABLED;
@@ -125,6 +131,13 @@ public final class SpectralConfig {
     private static final ModConfigSpec.BooleanValue HAUNTING_MONSTER_GHOSTS;
     private static final ModConfigSpec.IntValue HAUNTING_MONSTER_GHOST_CAP;
     private static final ModConfigSpec.DoubleValue HAUNTING_NETHER_CHANCE;
+    private static final ModConfigSpec.ConfigValue<List<? extends Double>> HIGH_JUMP_HEIGHTS;
+    private static final ModConfigSpec.IntValue HIGH_JUMP_CHARGE_TIMEOUT;
+    private static final ModConfigSpec.DoubleValue SPRINGY_MIN_FALL;
+    private static final ModConfigSpec.DoubleValue SPRINGY_RESTITUTION;
+    private static final ModConfigSpec.DoubleValue SPRINGY_PERFECT_RESTITUTION;
+    private static final ModConfigSpec.IntValue SPRINGY_PERFECT_WINDOW;
+    private static final ModConfigSpec.DoubleValue SPRINGY_MAX_SPEED;
     private static final ModConfigSpec.DoubleValue STUDYING_CURSE_CHANCE_MAX;
     private static final ModConfigSpec.DoubleValue STUDYING_CURSE_CHANCE_MIN;
     private static final ModConfigSpec.IntValue STUDYING_CURSE_CHANCE_MIN_LEVEL;
@@ -151,7 +164,7 @@ public final class SpectralConfig {
                         "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
                 .translation("spectral_enchantments.configuration.broadBreaker.treasure_only")
                 .worldRestart()
-                .define("broadBreaker.treasure_only", false);
+                .define("broadBreaker.treasure_only", true);
         FAR_MINER_ENABLED = common
                 .comment("Whether Far Miner can be obtained and works. When false it stays registered (so enchanted items",
                         "keep it) but does nothing and no longer turns up in enchanting tables, loot, trades or recipes.",
@@ -164,7 +177,7 @@ public final class SpectralConfig {
                         "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
                 .translation("spectral_enchantments.configuration.farMiner.treasure_only")
                 .worldRestart()
-                .define("farMiner.treasure_only", false);
+                .define("farMiner.treasure_only", true);
         GATHER_ENABLED = common
                 .comment("Whether Gather can be obtained and works. When false it stays registered (so enchanted items",
                         "keep it) but does nothing and no longer turns up in enchanting tables, loot, trades or recipes.",
@@ -216,7 +229,7 @@ public final class SpectralConfig {
                         "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
                 .translation("spectral_enchantments.configuration.catapulting.treasure_only")
                 .worldRestart()
-                .define("catapulting.treasure_only", false);
+                .define("catapulting.treasure_only", true);
         EXPLOSIVE_BOLTS_ENABLED = common
                 .comment("Whether Explosive Bolts can be obtained and works. When false it stays registered (so enchanted items",
                         "keep it) but does nothing and no longer turns up in enchanting tables, loot, trades or recipes.",
@@ -229,7 +242,7 @@ public final class SpectralConfig {
                         "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
                 .translation("spectral_enchantments.configuration.explosiveBolts.treasure_only")
                 .worldRestart()
-                .define("explosiveBolts.treasure_only", false);
+                .define("explosiveBolts.treasure_only", true);
         DOPPELGANGER_ENABLED = common
                 .comment("Whether Doppelganger can be obtained and works. When false it stays registered (so enchanted items",
                         "keep it) but does nothing and no longer turns up in enchanting tables, loot, trades or recipes.",
@@ -242,7 +255,7 @@ public final class SpectralConfig {
                         "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
                 .translation("spectral_enchantments.configuration.doppelganger.treasure_only")
                 .worldRestart()
-                .define("doppelganger.treasure_only", false);
+                .define("doppelganger.treasure_only", true);
         POSSESSION_CURSE_ENABLED = common
                 .comment("Whether Curse of Possession can be obtained and works. When false it stays registered (so cursed items",
                         "keep it) but does nothing and no longer turns up in loot, trades or recipes.",
@@ -250,12 +263,6 @@ public final class SpectralConfig {
                 .translation("spectral_enchantments.configuration.possessionCurse.enabled")
                 .worldRestart()
                 .define("possessionCurse.enabled", true);
-        POSSESSION_CURSE_TREASURE_ONLY = common
-                .comment("If true, this enchantment is treasure-only: it can't be rolled at the enchanting table and is found",
-                        "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
-                .translation("spectral_enchantments.configuration.possessionCurse.treasure_only")
-                .worldRestart()
-                .define("possessionCurse.treasure_only", true);
         HAUNTING_CURSE_ENABLED = common
                 .comment("Whether Curse of Haunting can be obtained and works. When false it stays registered (so cursed items",
                         "keep it) but does nothing and no longer turns up in loot, trades or recipes.",
@@ -263,12 +270,32 @@ public final class SpectralConfig {
                 .translation("spectral_enchantments.configuration.hauntingCurse.enabled")
                 .worldRestart()
                 .define("hauntingCurse.enabled", true);
-        HAUNTING_CURSE_TREASURE_ONLY = common
+        HIGH_JUMP_ENABLED = common
+                .comment("Whether High Jump can be obtained and works. When false it stays registered (so enchanted items",
+                        "keep it) but does nothing and no longer turns up in enchanting tables, loot, trades or recipes.",
+                        "Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.highJump.enabled")
+                .worldRestart()
+                .define("highJump.enabled", true);
+        HIGH_JUMP_TREASURE_ONLY = common
                 .comment("If true, this enchantment is treasure-only: it can't be rolled at the enchanting table and is found",
                         "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
-                .translation("spectral_enchantments.configuration.hauntingCurse.treasure_only")
+                .translation("spectral_enchantments.configuration.highJump.treasure_only")
                 .worldRestart()
-                .define("hauntingCurse.treasure_only", true);
+                .define("highJump.treasure_only", true);
+        SPRINGY_ENABLED = common
+                .comment("Whether Springy can be obtained and works. When false it stays registered (so enchanted items",
+                        "keep it) but does nothing and no longer turns up in enchanting tables, loot, trades or recipes.",
+                        "Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.springy.enabled")
+                .worldRestart()
+                .define("springy.enabled", true);
+        SPRINGY_TREASURE_ONLY = common
+                .comment("If true, this enchantment is treasure-only: it can't be rolled at the enchanting table and is found",
+                        "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.springy.treasure_only")
+                .worldRestart()
+                .define("springy.treasure_only", false);
         STUDY_ENABLED = common
                 .comment("Whether enchantments can be studied or copied at a lectern at all. When false neither works, whatever",
                         "their own settings say.")
@@ -560,6 +587,42 @@ public final class SpectralConfig {
                         "Haunting, on top of the usual small chance anywhere.")
                 .translation("spectral_enchantments.configuration.hauntingCurse.netherChance")
                 .defineInRange(List.of("hauntingCurse", "netherChance"), 0.02, 0.0, 1.0);
+        HIGH_JUMP_HEIGHTS = server
+                .comment("How high a fully charged High Jump leaps, for levels I, II and III, in blocks. A weaker charge leaps",
+                        "less, down to a plain jump. Three numbers, each at least " + MIN_HIGH_JUMP_HEIGHT + " (at most "
+                                + (int) MAX_HIGH_JUMP_HEIGHT + ") and",
+                        "no lower than the one before. An invalid list is reset to the default.")
+                .translation("spectral_enchantments.configuration.highJump.heights")
+                .define(List.of("highJump", "heights"), () -> DEFAULT_HIGH_JUMP_HEIGHTS,
+                        SpectralConfig::isValidHighJumpHeights, List.class);
+        HIGH_JUMP_CHARGE_TIMEOUT = server
+                .comment("How long High Jump's jump bar waits for the jump key to come up before it gives up, in ticks (20 a",
+                        "second). Letting go then does nothing.")
+                .translation("spectral_enchantments.configuration.highJump.chargeTimeoutTicks")
+                .defineInRange(List.of("highJump", "chargeTimeoutTicks"), 60, 1, 1200);
+        SPRINGY_MIN_FALL = server
+                .comment("Springy only bounces a player who fell farther than this, in blocks.")
+                .translation("spectral_enchantments.configuration.springy.minFallDistance")
+                .defineInRange(List.of("springy", "minFallDistance"), 3.0, 0.5, 64.0);
+        SPRINGY_RESTITUTION = server
+                .comment("How high a straight-down Springy bounce goes, as a fraction of the fall (0.5 for half). Landing at an",
+                        "angle turns part of the bounce into forward speed.")
+                .translation("spectral_enchantments.configuration.springy.restitution")
+                .defineInRange(List.of("springy", "restitution"), 0.75, 0.0, 1.0);
+        SPRINGY_PERFECT_RESTITUTION = server
+                .comment("How high a Springy bounce goes when the player jumps just as they land, as a fraction of the fall.")
+                .translation("spectral_enchantments.configuration.springy.perfectRestitution")
+                .defineInRange(List.of("springy", "perfectRestitution"), 0.95, 0.0, 1.0);
+        SPRINGY_PERFECT_WINDOW = server
+                .comment("How early, in ticks (20 a second), a jump before landing still counts as just as they land. A jump the",
+                        "tick after landing counts too. 0 means only the tick they land and the one after.")
+                .translation("spectral_enchantments.configuration.springy.perfectWindowTicks")
+                .defineInRange(List.of("springy", "perfectWindowTicks"), 3, 0, 20);
+        SPRINGY_MAX_SPEED = server
+                .comment("The fastest a Springy bounce can launch a player, in blocks per tick. Keeps very long falls from flinging",
+                        "players into unloaded chunks.")
+                .translation("spectral_enchantments.configuration.springy.maxBounceSpeed")
+                .defineInRange(List.of("springy", "maxBounceSpeed"), 2.0, 0.1, 10.0);
         STUDYING_CURSE_CHANCE_MAX = server
                 .comment("The chance, from 0 to 1, that studying an item at level 0 writes a random curse instead of its enchantment.",
                         "The chance falls in a straight line from this to curseChanceMin as the player's level rises to",
@@ -631,6 +694,22 @@ public final class SpectralConfig {
                 return false;
             }
             previous = current;
+        }
+        return true;
+    }
+
+    /** One height per level, each within High Jump's bounds and no lower than the one before. */
+    public static boolean isValidHighJumpHeights(Object value) {
+        if (!(value instanceof List<?> list) || list.size() != LEVELS) {
+            return false;
+        }
+        double previous = MIN_HIGH_JUMP_HEIGHT;
+        for (Object element : list) {
+            if (!(element instanceof Number number) || !(number.doubleValue() >= previous)
+                    || number.doubleValue() > MAX_HIGH_JUMP_HEIGHT) {
+                return false;
+            }
+            previous = number.doubleValue();
         }
         return true;
     }
@@ -712,20 +791,28 @@ public final class SpectralConfig {
         return COMMON_SPEC.isLoaded() ? DOPPELGANGER_ENABLED.get() : DOPPELGANGER_ENABLED.getDefault();
     }
 
-    public static boolean possessionCurseTreasureOnly() {
-        return COMMON_SPEC.isLoaded() ? POSSESSION_CURSE_TREASURE_ONLY.get() : POSSESSION_CURSE_TREASURE_ONLY.getDefault();
-    }
-
     public static boolean possessionCurseEnabled() {
         return COMMON_SPEC.isLoaded() ? POSSESSION_CURSE_ENABLED.get() : POSSESSION_CURSE_ENABLED.getDefault();
     }
 
-    public static boolean hauntingCurseTreasureOnly() {
-        return COMMON_SPEC.isLoaded() ? HAUNTING_CURSE_TREASURE_ONLY.get() : HAUNTING_CURSE_TREASURE_ONLY.getDefault();
-    }
-
     public static boolean hauntingCurseEnabled() {
         return COMMON_SPEC.isLoaded() ? HAUNTING_CURSE_ENABLED.get() : HAUNTING_CURSE_ENABLED.getDefault();
+    }
+
+    public static boolean highJumpTreasureOnly() {
+        return COMMON_SPEC.isLoaded() ? HIGH_JUMP_TREASURE_ONLY.get() : HIGH_JUMP_TREASURE_ONLY.getDefault();
+    }
+
+    public static boolean highJumpEnabled() {
+        return COMMON_SPEC.isLoaded() ? HIGH_JUMP_ENABLED.get() : HIGH_JUMP_ENABLED.getDefault();
+    }
+
+    public static boolean springyTreasureOnly() {
+        return COMMON_SPEC.isLoaded() ? SPRINGY_TREASURE_ONLY.get() : SPRINGY_TREASURE_ONLY.getDefault();
+    }
+
+    public static boolean springyEnabled() {
+        return COMMON_SPEC.isLoaded() ? SPRINGY_ENABLED.get() : SPRINGY_ENABLED.getDefault();
     }
 
     /** Whether enchanted items can be studied at a lectern: enchantment study and studying both on. */
@@ -887,6 +974,42 @@ public final class SpectralConfig {
     public static int doppelgangerEmoteMaxTicks() {
         int max = 20 * (SERVER_SPEC.isLoaded() ? DOPPELGANGER_EMOTE_MAX.get() : DOPPELGANGER_EMOTE_MAX.getDefault());
         return Math.max(max, doppelgangerEmoteMinTicks());
+    }
+
+    /** How high a fully charged High Jump leaps at {@code level} (levels above III use III's), in blocks. */
+    public static double highJumpHeight(int level) {
+        List<? extends Number> heights = SERVER_SPEC.isLoaded() ? HIGH_JUMP_HEIGHTS.get() : DEFAULT_HIGH_JUMP_HEIGHTS;
+        return heights.get(Mth.clamp(level, 1, LEVELS) - 1).doubleValue();
+    }
+
+    /** How long High Jump's charged bar waits for a jump before it gives up, in ticks. */
+    public static int highJumpChargeTimeoutTicks() {
+        return SERVER_SPEC.isLoaded() ? HIGH_JUMP_CHARGE_TIMEOUT.get() : HIGH_JUMP_CHARGE_TIMEOUT.getDefault();
+    }
+
+    /** Springy bounces only falls longer than this, in blocks. */
+    public static double springyMinFallDistance() {
+        return SERVER_SPEC.isLoaded() ? SPRINGY_MIN_FALL.get() : SPRINGY_MIN_FALL.getDefault();
+    }
+
+    /** The fraction of the fall height a straight-down Springy bounce returns. */
+    public static double springyRestitution() {
+        return SERVER_SPEC.isLoaded() ? SPRINGY_RESTITUTION.get() : SPRINGY_RESTITUTION.getDefault();
+    }
+
+    /** The fraction of the fall height a well-timed (jumped) Springy bounce returns. */
+    public static double springyPerfectRestitution() {
+        return SERVER_SPEC.isLoaded() ? SPRINGY_PERFECT_RESTITUTION.get() : SPRINGY_PERFECT_RESTITUTION.getDefault();
+    }
+
+    /** How many ticks before landing a jump still times a Springy bounce well. */
+    public static int springyPerfectWindowTicks() {
+        return SERVER_SPEC.isLoaded() ? SPRINGY_PERFECT_WINDOW.get() : SPRINGY_PERFECT_WINDOW.getDefault();
+    }
+
+    /** The fastest a Springy bounce launches, in blocks per tick. */
+    public static double springyMaxBounceSpeed() {
+        return SERVER_SPEC.isLoaded() ? SPRINGY_MAX_SPEED.get() : SPRINGY_MAX_SPEED.getDefault();
     }
 
     /** Whether curses stay out of tooltips until the item has been in a player's inventory. */

@@ -207,17 +207,28 @@ public final class SpectralEnchantmentsGameTests {
     /** The config switches flow through to the data: a disabled enchantment fits nothing and is never offered. */
     @GameTest(template = "empty")
     public static void configSwitchesControlAvailability(GameTestHelper helper) {
-        checkAvailability(helper, ModEnchantments.BROAD_BREAKER, SpectralConfig.broadBreakerEnabled(), Items.DIAMOND_PICKAXE);
-        checkAvailability(helper, ModEnchantments.FAR_MINER, SpectralConfig.farMinerEnabled(), Items.DIAMOND_PICKAXE);
-        checkAvailability(helper, ModEnchantments.GATHER, SpectralConfig.gatherEnabled(), Items.DIAMOND_SWORD);
-        checkAvailability(helper, ModEnchantments.BRANCH_FINDING, SpectralConfig.branchFindingEnabled(), Items.IRON_HOE);
+        checkAvailability(helper, ModEnchantments.BROAD_BREAKER, SpectralConfig.broadBreakerEnabled(),
+                SpectralConfig.broadBreakerTreasureOnly(), Items.DIAMOND_PICKAXE);
+        checkAvailability(helper, ModEnchantments.FAR_MINER, SpectralConfig.farMinerEnabled(),
+                SpectralConfig.farMinerTreasureOnly(), Items.DIAMOND_PICKAXE);
+        checkAvailability(helper, ModEnchantments.GATHER, SpectralConfig.gatherEnabled(),
+                SpectralConfig.gatherTreasureOnly(), Items.DIAMOND_SWORD);
+        checkAvailability(helper, ModEnchantments.BRANCH_FINDING, SpectralConfig.branchFindingEnabled(),
+                SpectralConfig.branchFindingTreasureOnly(), Items.IRON_HOE);
+        checkAvailability(helper, ModEnchantments.SPRINGY, SpectralConfig.springyEnabled(),
+                SpectralConfig.springyTreasureOnly(), Items.DIAMOND_BOOTS);
+        // Curses are always treasure, as vanilla's are.
+        checkAvailability(helper, ModEnchantments.POSSESSION_CURSE, SpectralConfig.possessionCurseEnabled(), true, Items.DIAMOND_SWORD);
+        checkAvailability(helper, ModEnchantments.HAUNTING_CURSE, SpectralConfig.hauntingCurseEnabled(), true, Items.DIAMOND_CHESTPLATE);
         helper.succeed();
     }
 
-    private static void checkAvailability(GameTestHelper helper, ResourceKey<Enchantment> key, boolean enabled, Item tool) {
+    private static void checkAvailability(GameTestHelper helper, ResourceKey<Enchantment> key, boolean enabled, boolean treasureOnly,
+                                          Item tool) {
         Holder<Enchantment> holder = helper.getLevel().registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(key);
-        helper.assertTrue(holder.is(EnchantmentTags.IN_ENCHANTING_TABLE) == enabled,
-                key.location() + " should " + (enabled ? "" : "not ") + "be in the enchanting table");
+        boolean inTable = enabled && !treasureOnly;
+        helper.assertTrue(holder.is(EnchantmentTags.IN_ENCHANTING_TABLE) == inTable,
+                key.location() + " should " + (inTable ? "" : "not ") + "be in the enchanting table");
         helper.assertTrue(new ItemStack(tool).supportsEnchantment(holder) == enabled,
                 key.location() + " should " + (enabled ? "" : "not ") + "apply to " + tool);
         helper.assertTrue(holder.is(ModEnchantments.DISABLED) != enabled,

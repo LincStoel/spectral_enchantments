@@ -24,6 +24,7 @@ public final class SpectralEnchantmentsClient {
                 event.registerReloadListener((ResourceManagerReloadListener) manager -> {
                     GhostTextures.clear();
                     GhostSkins.clear();
+                    SpringyClient.clearModels();
                 }));
         modBus.addListener((EntityRenderersEvent.RegisterRenderers event) -> {
             event.registerEntityRenderer(ModEntities.ANIMATED_WEAPON.get(), AnimatedWeaponRenderer::new);
@@ -36,12 +37,14 @@ public final class SpectralEnchantmentsClient {
             event.registerEntityRenderer(ModEntities.HAUNTING_GHOST.get(), PlayerGhostRenderer::new);
         });
         modBus.addListener(SpectralSlotOverlay::register);
+        modBus.addListener(HighJumpClient::registerLayers);
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> {
             SpectralSessions.tick();
             FarMinerClient.tick();
             BranchFindingClient.tick();
             AnimatedClient.tick();
             StudyClient.tick();
+            SpringyClient.tick();
         });
         NeoForge.EVENT_BUS.addListener(StudyClient::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(StudyClient::onRenderHand);
@@ -57,6 +60,11 @@ public final class SpectralEnchantmentsClient {
         NeoForge.EVENT_BUS.addListener(FarMinerRenderer::render);
         NeoForge.EVENT_BUS.addListener(BranchFindingRenderer::render);
         NeoForge.EVENT_BUS.addListener(AnimatedClient::render);
+        NeoForge.EVENT_BUS.addListener(SpringyClient::render);
+        NeoForge.EVENT_BUS.addListener(HighJumpClient::onMovementInput);
+        NeoForge.EVENT_BUS.addListener(SpringyClient::onMovementInput);
+        NeoForge.EVENT_BUS.addListener(SpringyClient::onPlayerTick);
+        NeoForge.EVENT_BUS.addListener(HighJumpClient::onRenderLayer);
         NeoForge.EVENT_BUS.addListener(AnimatedClient::onInteractionKey);
         // Last, so a renderer another mod cancels never has its hand item hidden (Post wouldn't put it back).
         NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, AnimatedClient::onRenderLivingPre);
