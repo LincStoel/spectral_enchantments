@@ -1,0 +1,9 @@
+{
+  "values": [
+    "minecraft:chiseled_bookshelf",
+    {
+      "id": "supplementaries:book_pile",
+      "required": false
+    }
+  ]
+}

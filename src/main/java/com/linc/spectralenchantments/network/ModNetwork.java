@@ -4,9 +4,11 @@ import com.linc.spectralenchantments.FarMiner;
 import com.linc.spectralenchantments.animated.AnimatedManager;
 import com.linc.spectralenchantments.boots.HighJump;
 import com.linc.spectralenchantments.client.BranchFindingClient;
+import com.linc.spectralenchantments.client.EnchantingIndexClient;
 import com.linc.spectralenchantments.client.FarMinerClient;
 import com.linc.spectralenchantments.client.SpectralSessions;
 import com.linc.spectralenchantments.client.StudyClient;
+import com.linc.spectralenchantments.index.EnchantingIndex;
 import com.linc.spectralenchantments.study.EnchantmentStudy;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.fml.loading.FMLEnvironment;
@@ -39,6 +41,11 @@ public final class ModNetwork {
                 StudyClient.handle(payload);
             }
         });
+        registrar.playToClient(EnchantingIndexPayload.TYPE, EnchantingIndexPayload.STREAM_CODEC, (payload, context) -> {
+            if (FMLEnvironment.dist.isClient()) {
+                EnchantingIndexClient.handle(payload);
+            }
+        });
         registrar.playToServer(FarMinePayload.TYPE, FarMinePayload.STREAM_CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) {
                 FarMiner.handle(player, payload);
@@ -57,6 +64,11 @@ public final class ModNetwork {
         registrar.playToServer(AnimatedRecallPayload.TYPE, AnimatedRecallPayload.STREAM_CODEC, (payload, context) -> {
             if (context.player() instanceof ServerPlayer player) {
                 AnimatedManager.recallFromHand(player);
+            }
+        });
+        registrar.playToServer(EnchantingIndexRenamePayload.TYPE, EnchantingIndexRenamePayload.STREAM_CODEC, (payload, context) -> {
+            if (context.player() instanceof ServerPlayer player) {
+                EnchantingIndex.rename(player, payload.locations(), payload.book(), payload.name());
             }
         });
     }

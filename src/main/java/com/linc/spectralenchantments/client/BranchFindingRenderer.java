@@ -36,7 +36,7 @@ final class BranchFindingRenderer {
 
     private BranchFindingRenderer() {}
 
-    /** Like vanilla's lines type, minus the depth test and depth writes. */
+    /** Like vanilla's lines type, minus the depth test (see {@link ThroughWalls}) and depth writes. */
     private static RenderType lines(String name, OptionalDouble width) {
         return RenderType.create("spectral_enchantments_" + name, DefaultVertexFormat.POSITION_COLOR_NORMAL, VertexFormat.Mode.LINES,
                 1536, false, false, RenderType.CompositeState.builder()
@@ -46,6 +46,7 @@ final class BranchFindingRenderer {
                         .setOutputState(RenderStateShard.ITEM_ENTITY_TARGET)
                         .setWriteMaskState(RenderStateShard.COLOR_WRITE)
                         .setDepthTestState(RenderStateShard.NO_DEPTH_TEST)
+                        .setLayeringState(ThroughWalls.SHARD)
                         .setCullState(RenderStateShard.NO_CULL)
                         .createCompositeState(false));
     }

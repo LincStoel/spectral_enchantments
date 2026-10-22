@@ -200,6 +200,19 @@ Both start with a blank book and quill on a lectern. When done, it becomes an en
 - Enchantments that are switched off can't be studied or copied, and treasure enchantments can't be copied. They are left out when choosing; if nothing is left, you are told which ones are too powerful.
 - Tags: `spectral_enchantments:study/catalyst` (items to rub with; amethyst shard), `study/unstudyable` (empty), `study/uncopyable` (`#minecraft:treasure`), `study/curses` (curses that can be written; `#minecraft:curse`).
 
+## Enchanting Index
+
+A book that catalogues the enchanted books in your library. Crafted from a book and quill, an amethyst shard and a diamond (shapeless). Doesn't stack.
+
+- **Use it in the air** (or on any other block) to list the enchanted books on every chiseled bookshelf within 16 blocks of you (a cube).
+- **Use it on a chiseled bookshelf** to list the books on that shelf and every shelf joined to it, however far the library runs (up to 512 shelves). Shelves touching only at an edge or corner count as joined.
+- Either way, it then cools down for 2 seconds.
+- The page lists one row per kind of book: its icon, its name (or its enchantments if it has none, like "Sharpness V +2 more") and how many copies there are. Hover over a row to see its enchantments and curses. Rows with a curse are stained with old blood.
+- **Seek:** search by title or enchantment. Under it are type filters: diamond sword, axe, pickaxe, shovel, hoe, helmet, chestplate, leggings and boots, bow, crossbow, trident, mace, fishing rod, dirt for enchantments that go on anything (like Mending), and Curses. Pick several to see books for any of them.
+- **Click a row** to close the page and make every copy glow on its shelf, over the very slot it sits in, seen through walls. The glow lasts 30 seconds or until the book is taken out.
+- **Right-click a row** to rename every copy of that book, free. Press Enter to keep the name, Esc to cancel. A blank name takes the custom name off.
+- It finds books in any block in the `spectral_enchantments:enchanting_index/book_holders` block tag whose block entity holds items: chiseled bookshelves, and Supplementaries' book piles (books stacked flat) if it's installed.
+
 ## Obtaining
 
 - **Enchanting table:** Gather (uncommon), Branch Finding and Springy (rare) by default; any other enchantment with `treasure_only` set to false (very rare). Curses never.
@@ -239,6 +252,8 @@ Loot entries for a disabled enchantment are not added.
 
 Also `enchantmentStudy.enabled` (turns off studying and copying), `enchantmentStudy.studying.enabled` and `enchantmentStudy.copying.enabled`, all true. These take effect at once.
 
+`enchantingIndex.enabled` (true): when false, the Enchanting Index can't be crafted, leaves the creative tab and does nothing when used.
+
 **Server** (`serverconfig/spectral_enchantments-server.toml`, per world, synced to clients):
 
 | Section | Settings (default) |
@@ -255,11 +270,12 @@ Also `enchantmentStudy.enabled` (turns off studying and copying), `enchantmentSt
 | `curses` | `hideUntilHeld` true, `cursedSeconds` 60 |
 | `possessionCurse` | `healthPerDurability` 0.05, `minHealth` 6, `maxHealth` 40, `healthPerHardness` 4.0, `itemHealth` 1.0, `armor` 2.0, `damageMultiplier` 1.0, `dropChance` 0.1, `dropDurability` 0.05 |
 | `hauntingCurse` | `appearMinSeconds` 180, `appearMaxSeconds` 480, `stareSeconds` 30, `stareMinDistance` 12, `stareMaxDistance` 20, `approachDistance` 8, `vanishDistance` 32, `monsterRadius` 16, `buffRadius` 5, `buffLevel` 1, `buffSeconds` 15, `banishMinSeconds` 10, `banishMaxSeconds` 20, `castMinSeconds` 4, `castMaxSeconds` 10, `monsterGhosts` true, `monsterGhostCap` 4, `netherChance` 0.02 |
+| `enchantingIndex` | `radius` 16 (8 to 32), `maxConnectedBlocks` 512, `cooldownTicks` 40 |
 | `enchantmentStudy` | `studying` and `copying` each: `curseChanceMax` 0.1 (at level 0), `curseChanceMin` 0.0005, `curseChanceMinLevel` 30, `xpCost` 27, `durationTicks` 40; `treasureMultiplier` 2.0 |
 
 Invalid values are reset to their defaults.
 
-**Client** (`config/spectral_enchantments-client.toml`): `shaderBrightness` 0.5. This sets the brightness of ghost tools and weapons while an Iris shaderpack is active.
+**Client** (`config/spectral_enchantments-client.toml`): `shaderBrightness` 0.5. This sets the brightness of ghost tools and weapons while an Iris shaderpack is active. `enchantingIndex.glowSeconds` 30 and `enchantingIndex.glowThroughWalls` true set how long a book picked in the Enchanting Index glows and whether it shows through walls.
 
 ## Optional dependencies
 
@@ -274,6 +290,7 @@ None are required.
 | [Iris](https://modrinth.com/mod/iris) | Ghost rendering is adjusted to work with shaderpacks. Brightness is set in the client config. |
 | [Configured](https://modrinth.com/mod/configured) | In-game config screen (Mods → Spectral Enchantments → Config). |
 | [Enchantment Descriptions](https://modrinth.com/mod/enchantment-descriptions) | Shows the provided enchantment descriptions in tooltips. Description lines for hidden curses are hidden with them. |
+| [Supplementaries](https://modrinth.com/mod/supplementaries) | The Enchanting Index lists the enchanted books in book piles (books stacked flat). |
 | Simply Swords | Unique weapons are excluded from Animated and Curse of Possession. |
 
 Item tags also include the common `c:` tags (`c:swords`, `c:tools/melee_weapon`, `c:tools/mining_tool`, `c:tools/shear`, `c:tools/spear`, `c:tools/shield`, …), so other mods' tools and weapons are included where they use them.

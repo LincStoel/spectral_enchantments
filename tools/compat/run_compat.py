@@ -7,7 +7,7 @@ the scenarios, taking screenshots and probing client state. Results:
   run-compat/bot{1,2}/harness-*.txt   client events and probes
 
     python tools/compat/run_compat.py              # everything
-    python tools/compat/run_compat.py vanilla ars  # chosen scenarios (vanilla, iris, ars, sneak, spectral, doppelganger, haunting, study)
+    python tools/compat/run_compat.py vanilla ars  # chosen scenarios (vanilla, iris, ars, sneak, spectral, doppelganger, haunting, study, index, branch)
 """
 import pathlib
 import re
@@ -834,9 +834,296 @@ def scenario_study(s):
     time.sleep(3)
 
 
+# ---- Enchanting Index ----
+
+INDEX_WALL_Z = 10
+
+
+def ench_book(levels, name=None):
+    """An enchanted book's item NBT for a container's Items list (without Slot)."""
+    inner = ",".join(f'"minecraft:{k}":{v}' for k, v in levels.items())
+    comps = f'"minecraft:stored_enchantments":{{levels:{{{inner}}}}}'
+    if name:
+        comps += f',"minecraft:custom_name":\'"{name}"\''
+    return f'id:"minecraft:enchanted_book",count:1,components:{{{comps}}}'
+
+
+def index_shelf(s, x, y, z, books, facing="north"):
+    """A chiseled bookshelf holding {slot: item NBT}, with the matching occupied slots in its block state."""
+    occupied = ",".join(f"slot_{i}_occupied={'true' if i in books else 'false'}" for i in range(6))
+    items = ",".join(f"{{Slot:{slot}b,{item}}}" for slot, item in books.items())
+    s.c(f"setblock {x} {y} {z} minecraft:chiseled_bookshelf[facing={facing},{occupied}]{{Items:[{items}]}}", quiet=True)
+
+
+def index_layout(probe_line):
+    """The page's layout in GUI coordinates, mirroring EnchantingIndexScreen."""
+    m = re.search(r"gui=(\d+)x(\d+)", probe_line)
+    w, h = int(m.group(1)), int(m.group(2))
+    page_height = min(256, h - 16)
+    left, top = (w - 212) // 2, (h - page_height) // 2
+    list_left, list_top = left + 16, top + 106
+    return {
+        "row": lambda i: (list_left + 60, list_top + 18 * i + 9),
+        "tile": lambda i: (list_left + (i % 8) * 22 + 10, top + 52 + (i // 8) * 22 + 10),
+        "search": (list_left + 80, top + 38),
+    }
+
+
+def index_rows(probe_line):
+    m = re.search(r"indexRows=\[(.*?)\]", probe_line)
+    return [r for r in m.group(1).split("|") if r] if m else None
+
+
+def index_probe(s, label):
+    s.do("Bot1", "probe", label)
+    time.sleep(0.8)
+    line = last_probe("Bot1")
+    screen = re.search(r"screen=(\S+)", line)
+    glows = re.search(r"indexGlows=(\S+)", line)
+    log(f"  probe {label}: screen={screen.group(1) if screen else '?'} rows={index_rows(line)} "
+        f"glows={glows.group(1) if glows else '?'}")
+    return line
+
+
+def index_use(s, pitch):
+    """Bot1 faces the library from 3.5 blocks back, pitched to hit the shelves (about 3) or the sky (-60), and uses the index."""
+    s.c(f"tp Bot1 0.5 0 6.5 0 {pitch}", quiet=True)
+    time.sleep(1)
+    s.do("Bot1", "use", "on")
+    time.sleep(0.3)
+    s.do("Bot1", "use", "off")
+    time.sleep(1.5)
+
+
+def scenario_index(s):
+    """The Enchanting Index: page, search, filters, rename, glow (seen through walls), book piles, cooldown."""
+    z = INDEX_WALL_Z
+    s.c("fill -8 0 2 8 10 16 air", quiet=True)
+    s.c("kill @e[type=minecraft:item]", quiet=True)
+    sharp = ench_book({"sharpness": 5})
+    index_shelf(s, -2, 1, z, {0: sharp, 1: ench_book({"protection": 4, "unbreaking": 3, "mending": 1}),
+                              3: 'id:"minecraft:book",count:1'})
+    index_shelf(s, -1, 1, z, {2: sharp, 4: ench_book({"mending": 1})})
+    index_shelf(s, 0, 1, z, {0: ench_book({"thorns": 3, "binding_curse": 1}), 5: ench_book({"power": 5})})
+    index_shelf(s, 1, 1, z, {1: ench_book({"efficiency": 5}, name="Old Tome")})
+    index_shelf(s, 2, 1, z, {0: ench_book({"vanishing_curse": 1}), 3: ench_book({"feather_falling": 4})})
+    index_shelf(s, 0, 0, z, {1: ench_book({"lure": 3})})
+    for x in (-2, -1, 1, 2):
+        index_shelf(s, x, 0, z, {})
+    # A shelf on its own behind a stone wall: only the search around the player finds it.
+    index_shelf(s, 5, 0, z + 3, {2: ench_book({"silk_touch": 1})})
+    s.c(f"fill 4 0 {z + 2} 6 2 {z + 2} stone", quiet=True)
+    # A Supplementaries book pile touching the wall at a corner, if Supplementaries is loaded.
+    pile_items = ",".join(f"{{Slot:{i}b,{b}}}" for i, b in enumerate(
+        [ench_book({"smite": 5}), ench_book({"looting": 3}), ench_book({"knockback": 2})]))
+    pile = s.c(f"setblock -3 0 {z - 1} supplementaries:book_pile[books=3]{{Items:[{pile_items}]}}", quiet=True)
+    has_pile = "changed" in pile.lower()
+    log(f"  book pile: {pile.strip()}")
+
+    s.c("gamemode creative Bot1", quiet=True)
+    s.c("clear Bot1", quiet=True)
+    s.c("item replace entity Bot1 weapon.mainhand with spectral_enchantments:enchanting_index", quiet=True)
+    s.do("Bot1", "hud", "on")
+    s.c("tp Bot2 6.5 1 3.5 35 15", quiet=True)
+
+    # Used on a shelf: that shelf and every one joined to it.
+    index_use(s, 3)
+    line = index_probe(s, "index-joined")
+    rows = index_rows(line) or []
+    check("screen=EnchantingIndexScreen" in line, "[index] using the index on a shelf opens its page")
+    check("Sharpness V x2" in rows, f"[index] identical books share a row with their count ({rows})")
+    check(not any("Silk Touch" in r for r in rows), "[index] the separate shelf isn't joined")
+    check("Mending +2 more x1" in rows and "Old Tome x1" in rows, "[index] rows read their enchantments, or their custom name")
+    check(not any(r.startswith("Book") for r in rows), "[index] plain books are left out")
+    if has_pile:
+        check(any("Smite V" in r for r in rows) and any("Looting III" in r for r in rows),
+              "[index] books in the Supplementaries book pile are listed")
+    if "gui=" not in line:
+        return
+    lay = index_layout(line)
+    shot(s, "Bot1", "index-page")
+    s.do("Bot1", "cursor", "%d %d" % lay["row"](0))
+    time.sleep(0.6)
+    shot(s, "Bot1", "index-tooltip-first")
+    thorns = next((i for i, r in enumerate(rows) if r.startswith("Thorns")), None)
+    if thorns is not None and thorns < 7:
+        s.do("Bot1", "cursor", "%d %d" % lay["row"](thorns))
+        time.sleep(0.6)
+        shot(s, "Bot1", "index-tooltip-thorns")
+
+    # Filters: any selected type will do.
+    s.do("Bot1", "click", "%d %d 0" % lay["tile"](0))  # sword
+    rows = index_rows(index_probe(s, "index-sword")) or []
+    check("Sharpness V x2" in rows and "Power V x1" not in rows and "Old Tome x1" not in rows,
+          f"[index] the sword filter keeps sword books and drops bow and pickaxe ones ({rows})")
+    check("Mending x1" in rows, "[index] books that go on anything pass every type filter")
+    shot(s, "Bot1", "index-filter-sword")
+    s.do("Bot1", "click", "%d %d 0" % lay["tile"](5))  # bow
+    rows = index_rows(index_probe(s, "index-sword-bow")) or []
+    check("Power V x1" in rows and "Sharpness V x2" in rows, "[index] a second filter adds its books")
+    s.do("Bot1", "click", "%d %d 0" % lay["tile"](0))
+    s.do("Bot1", "click", "%d %d 0" % lay["tile"](5))
+    s.do("Bot1", "click", "%d %d 0" % lay["tile"](15))  # curses
+    rows = index_rows(index_probe(s, "index-curse")) or []
+    check(sorted(rows) == ["Curse of Vanishing x1", "Thorns III +1 more x1"], f"[index] the curse filter shows the cursed books ({rows})")
+    shot(s, "Bot1", "index-filter-curse")
+    s.do("Bot1", "click", "%d %d 0" % lay["tile"](15))
+    s.do("Bot1", "click", "%d %d 0" % lay["tile"](14))  # general
+    rows = index_rows(index_probe(s, "index-general")) or []
+    check("Mending x1" in rows and "Curse of Vanishing x1" in rows and "Sharpness V x2" not in rows,
+          f"[index] the dirt filter shows books for anything ({rows})")
+    s.do("Bot1", "click", "%d %d 0" % lay["tile"](14))
+
+    # Search matches titles and the enchantments on each book.
+    s.do("Bot1", "click", "%d %d 0" % lay["search"])
+    s.do("Bot1", "type", "mend")
+    rows = index_rows(index_probe(s, "index-search")) or []
+    check(sorted(rows) == ["Mending +2 more x1", "Mending x1"], f"[index] searching 'mend' finds both Mending books ({rows})")
+    shot(s, "Bot1", "index-search")
+    for _ in range(4):
+        s.do("Bot1", "key", "259")  # backspace
+
+    # Right-click renames every copy.
+    rows = index_rows(index_probe(s, "index-before-rename")) or []
+    lure = rows.index("Lure III x1") if "Lure III x1" in rows else None
+    check(lure is not None and lure < 7, f"[index] Lure III is on the first page to rename ({lure})")
+    if lure is not None and lure < 7:
+        s.do("Bot1", "click", "%d %d 1" % lay["row"](lure))
+        time.sleep(0.3)
+        s.do("Bot1", "type", "Fishing Notes")
+        time.sleep(0.3)
+        shot(s, "Bot1", "index-renaming")
+        s.do("Bot1", "key", "257")  # enter
+        time.sleep(1)
+        rows = index_rows(index_probe(s, "index-renamed")) or []
+        check("Fishing Notes x1" in rows, "[index] the renamed row shows its new name")
+        out = s.c(f"data get block 0 0 {z} Items[0].components", quiet=True)
+        check("Fishing Notes" in out, f"[index] the book on the shelf is renamed ({out.strip()[:200]})")
+
+    # Picking a row closes the page and lights up every copy.
+    rows = index_rows(index_probe(s, "index-before-pick")) or []
+    sharp_row = rows.index("Sharpness V x2") if "Sharpness V x2" in rows else None
+    if sharp_row is not None and sharp_row >= 7:
+        s.do("Bot1", "type", "sharp")
+        time.sleep(0.5)
+        sharp_row = 0
+    check(sharp_row is not None, "[index] the Sharpness row can be picked")
+    if sharp_row is not None:
+        s.do("Bot1", "click", "%d %d 0" % lay["row"](sharp_row))
+        time.sleep(1)
+        line = index_probe(s, "index-picked")
+        check("screen=none" in line and "indexGlows=2" in line, "[index] picking closes the page and lights both copies")
+        check("2 copies glow" in line, "[index] and says so above the hotbar")
+        shot(s, "Bot1", "index-glow")
+        s.do("Bot2", "probe", "index-picked-remote")
+        time.sleep(0.6)
+        check("indexGlows=0" in last_probe("Bot2"), "[index] other players don't see the glow")
+        shot(s, "Bot2", "index-glow-remote")
+        s.c("tp Bot1 -1.5 1 8 0 20", quiet=True)
+        time.sleep(1.5)
+        shot(s, "Bot1", "index-glow-close")
+        s.c(f"item replace block -2 1 {z} container.0 with air", quiet=True)
+        time.sleep(1)
+        check("indexGlows=1" in index_probe(s, "index-took-one"), "[index] taking a book out stops its glow")
+
+    # In the air: the search around the player. Then the cooldown: a second use straight away does nothing.
+    time.sleep(2.5)
+    index_use(s, -60)
+    line = index_probe(s, "index-around")
+    rows = index_rows(line) or []
+    check("screen=EnchantingIndexScreen" in line, "[index] using the index in the air opens its page")
+    check("Silk Touch x1" in rows, f"[index] the search around the player finds the separate shelf ({rows})")
+    # Straight away this time, well inside the 2 second cooldown.
+    s.do("Bot1", "key", "256")  # escape
+    s.do("Bot1", "use", "on")
+    time.sleep(0.3)
+    s.do("Bot1", "use", "off")
+    time.sleep(0.4)
+    s.do("Bot1", "key", "256")
+    s.do("Bot1", "use", "on")
+    time.sleep(0.3)
+    s.do("Bot1", "use", "off")
+    time.sleep(0.4)
+    check("screen=none" in index_probe(s, "index-cooldown"), "[index] using it again straight away does nothing (cooldown)")
+    time.sleep(2.5)
+    index_use(s, -60)
+    line = index_probe(s, "index-after-cooldown")
+    check("screen=EnchantingIndexScreen" in line, "[index] and works again once the cooldown is over")
+
+    # The separate shelf's book glows through the stone in front of it.
+    rows = index_rows(line) or []
+    if "Silk Touch x1" in rows:
+        lay = index_layout(line)
+        i = rows.index("Silk Touch x1")
+        if i >= 7:
+            s.do("Bot1", "type", "silk")
+            time.sleep(0.5)
+            i = 0
+        s.do("Bot1", "click", "%d %d 0" % lay["row"](i))
+        time.sleep(0.5)
+        s.c("tp Bot1 5.5 0 8.5 0 5", quiet=True)
+        time.sleep(1.5)
+        shot(s, "Bot1", "index-glow-through-wall")
+        check("indexGlows=1" in index_probe(s, "index-silk"), "[index] the separate shelf's book glows")
+
+    # A book in the pile glows too.
+    if has_pile:
+        time.sleep(2.5)
+        index_use(s, 3)
+        line = index_probe(s, "index-pile")
+        lay = index_layout(line)
+        s.do("Bot1", "type", "loot")
+        time.sleep(0.5)
+        s.do("Bot1", "click", "%d %d 0" % lay["row"](0))
+        time.sleep(0.5)
+        s.c("tp Bot1 -3.5 1 7 0 35", quiet=True)
+        time.sleep(1.5)
+        shot(s, "Bot1", "index-glow-pile")
+        check("indexGlows=1" in index_probe(s, "index-pile-glow"), "[index] the Looting book in the pile glows")
+    s.do("Bot1", "hud", "off")
+    s.c("clear Bot1", quiet=True)
+
+
+def scenario_branch(s):
+    """Branch Finding: the logs inside a canopy are outlined, seen through the leaves in front of them."""
+    s.c("fill -8 0 2 8 10 16 air", quiet=True)
+    s.c("kill @e[type=minecraft:item]", quiet=True)
+    s.c("fill -2 1 8 2 5 12 minecraft:oak_leaves[persistent=true]", quiet=True)
+    s.c("fill 0 0 10 0 4 10 minecraft:oak_log", quiet=True)
+    s.c("setblock 1 3 10 minecraft:oak_log[axis=x]", quiet=True)
+    s.c("setblock -1 4 10 minecraft:oak_log[axis=x]", quiet=True)
+    s.c("setblock 0 4 11 minecraft:oak_log[axis=z]", quiet=True)
+    s.c("gamemode creative Bot1", quiet=True)
+    s.c("clear Bot1", quiet=True)
+    s.c('item replace entity Bot1 weapon.mainhand with minecraft:shears'
+        '[minecraft:enchantments={levels:{"spectral_enchantments:branch_finding":1}}]', quiet=True)
+    s.do("Bot1", "hud", "on")
+    s.c("tp Bot1 0.5 0 5.5 0 -20", quiet=True)
+    time.sleep(1.5)
+    shot(s, "Bot1", "branch-before")
+    s.do("Bot1", "use", "on")
+    time.sleep(0.2)
+    s.do("Bot1", "use", "off")
+    time.sleep(0.8)
+    s.do("Bot1", "probe", "branch-found")
+    time.sleep(0.6)
+    line = last_probe("Bot1")
+    m = re.search(r"branchOutlines=(\d+)", line)
+    log(f"  probe branch-found: outlines={m.group(1) if m else '?'}")
+    # Every log but the bottom of the trunk, which touches no leaves.
+    check(m is not None and int(m.group(1)) >= 7, f"[branch] the logs inside the canopy are outlined ({m.group(1) if m else '?'})")
+    shot(s, "Bot1", "branch-outlines")
+    s.c("tp Bot1 3.5 1 6.5 30 0", quiet=True)
+    time.sleep(1.5)
+    shot(s, "Bot1", "branch-outlines-side")
+    s.do("Bot1", "hud", "off")
+    s.c("clear Bot1", quiet=True)
+
+
 SCENARIOS = {"debug": scenario_debug, "vanilla": scenario_vanilla, "iris": scenario_iris, "ars": scenario_ars,
              "sneak": scenario_sneak, "spectral": scenario_spectral,
-             "doppelganger": scenario_doppelganger, "haunting": scenario_haunting, "study": scenario_study}
+             "doppelganger": scenario_doppelganger, "haunting": scenario_haunting, "study": scenario_study,
+             "index": scenario_index, "branch": scenario_branch}
 
 
 def main():

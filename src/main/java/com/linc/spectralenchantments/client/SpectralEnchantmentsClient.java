@@ -45,6 +45,7 @@ public final class SpectralEnchantmentsClient {
             AnimatedClient.tick();
             StudyClient.tick();
             SpringyClient.tick();
+            EnchantingIndexClient.tick();
         });
         NeoForge.EVENT_BUS.addListener(StudyClient::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(StudyClient::onRenderHand);
@@ -59,6 +60,8 @@ public final class SpectralEnchantmentsClient {
         NeoForge.EVENT_BUS.addListener(SpectralToolRenderer::render);
         NeoForge.EVENT_BUS.addListener(FarMinerRenderer::render);
         NeoForge.EVENT_BUS.addListener(BranchFindingRenderer::render);
+        NeoForge.EVENT_BUS.addListener(EnchantingIndexRenderer::render);
+        NeoForge.EVENT_BUS.addListener(EnchantingIndexScreen::onTooltipColor);
         NeoForge.EVENT_BUS.addListener(AnimatedClient::render);
         NeoForge.EVENT_BUS.addListener(SpringyClient::render);
         NeoForge.EVENT_BUS.addListener(HighJumpClient::onMovementInput);

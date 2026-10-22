@@ -1,0 +1,38 @@
+{
+  "neoforge:conditions": [
+    {
+      "type": "spectral_enchantments:feature_enabled",
+      "feature": "enchanting_index"
+    }
+  ],
+  "parent": "minecraft:recipes/root",
+  "criteria": {
+    "has_the_recipe": {
+      "conditions": {
+        "recipe": "spectral_enchantments:enchanting_index"
+      },
+      "trigger": "minecraft:recipe_unlocked"
+    },
+    "has_writable_book": {
+      "conditions": {
+        "items": [
+          {
+            "items": "minecraft:writable_book"
+          }
+        ]
+      },
+      "trigger": "minecraft:inventory_changed"
+    }
+  },
+  "requirements": [
+    [
+      "has_the_recipe",
+      "has_writable_book"
+    ]
+  ],
+  "rewards": {
+    "recipes": [
+      "spectral_enchantments:enchanting_index"
+    ]
+  }
+}

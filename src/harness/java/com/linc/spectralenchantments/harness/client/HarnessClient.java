@@ -33,7 +33,10 @@ import net.neoforged.neoforge.client.event.ClientTickEvent;
  *   <li>{@code slot n}: select hotbar slot n</li>
  *   <li>{@code move walk|sprint|stop}: hold forward (and sprint)</li>
  *   <li>{@code shot name}: screenshot to screenshots/name.png</li>
- *   <li>{@code probe label}: append Broad Breaker / Animated companion / Iris client state to harness-probe.txt</li>
+ *   <li>{@code probe label}: append Broad Breaker / Animated companion / Iris / Enchanting Index client state to harness-probe.txt</li>
+ *   <li>{@code cursor "x y"}: put the mouse at GUI coordinates (x, y), for hovering in a screen</li>
+ *   <li>{@code click "x y button"}: press and release a mouse button at GUI coordinates in the open screen</li>
+ *   <li>{@code type text}: type the text into the open screen; {@code key code}: press a GLFW key in it</li>
  * </ul>
  * Everything notable is appended to harness-events.txt in the game directory.
  */
@@ -86,6 +89,38 @@ public final class HarnessClient {
             case "shot" -> Screenshot.grab(mc.gameDirectory, arg + ".png", mc.getMainRenderTarget(),
                     message -> event("shot " + arg + ": " + message.getString()));
             case "probe" -> probe(mc, arg);
+            case "cursor" -> {
+                String[] p = arg.trim().split("\\s+");
+                setCursor(mc, Double.parseDouble(p[0]), Double.parseDouble(p[1]));
+            }
+            case "click" -> {
+                String[] p = arg.trim().split("\\s+");
+                double x = Double.parseDouble(p[0]);
+                double y = Double.parseDouble(p[1]);
+                int button = Integer.parseInt(p[2]);
+                setCursor(mc, x, y);
+                if (mc.screen != null) {
+                    boolean handled = mc.screen.mouseClicked(x, y, button);
+                    if (mc.screen != null) {
+                        mc.screen.mouseReleased(x, y, button);
+                    }
+                    event("click " + arg + " handled=" + handled);
+                } else {
+                    event("click " + arg + " with no screen");
+                }
+            }
+            case "type" -> {
+                if (mc.screen != null) {
+                    for (char c : arg.toCharArray()) {
+                        mc.screen.charTyped(c, 0);
+                    }
+                }
+            }
+            case "key" -> {
+                if (mc.screen != null) {
+                    mc.screen.keyPressed(Integer.parseInt(arg.trim()), 0, 0);
+                }
+            }
             default -> event("unknown action " + payload.action());
         }
     }
@@ -151,8 +186,73 @@ public final class HarnessClient {
             out.append(" | mainhand=").append(mc.player.getMainHandItem().getItem())
                     .append(" damage=").append(mc.player.getMainHandItem().getDamageValue());
         }
+        out.append(" | gui=").append(mc.getWindow().getGuiScaledWidth()).append('x').append(mc.getWindow().getGuiScaledHeight());
+        out.append(" | screen=").append(mc.screen == null ? "none" : mc.screen.getClass().getSimpleName());
+        out.append(" | indexRows=").append(indexRows(mc));
+        out.append(" | indexGlows=").append(indexGlows());
+        out.append(" | branchOutlines=").append(branchOutlines());
         out.append(" | fps=").append(mc.getFps());
         append("harness-probe.txt", out.toString());
+    }
+
+    /** Moves the mouse to GUI coordinates (x, y), as the screen will read it when it next draws. */
+    private static void setCursor(Minecraft mc, double x, double y) {
+        try {
+            double scaleX = (double) mc.getWindow().getScreenWidth() / mc.getWindow().getGuiScaledWidth();
+            double scaleY = (double) mc.getWindow().getScreenHeight() / mc.getWindow().getGuiScaledHeight();
+            Field xpos = mc.mouseHandler.getClass().getDeclaredField("xpos");
+            Field ypos = mc.mouseHandler.getClass().getDeclaredField("ypos");
+            xpos.setAccessible(true);
+            ypos.setAccessible(true);
+            xpos.setDouble(mc.mouseHandler, x * scaleX);
+            ypos.setDouble(mc.mouseHandler, y * scaleY);
+        } catch (ReflectiveOperationException e) {
+            event("cursor failed: " + e);
+        }
+    }
+
+    /** The labels of the rows the open Enchanting Index page shows, as "label x count" separated by '|'. */
+    private static String indexRows(Minecraft mc) {
+        if (mc.screen == null || !mc.screen.getClass().getSimpleName().equals("EnchantingIndexScreen")) {
+            return "-";
+        }
+        try {
+            Field shown = mc.screen.getClass().getDeclaredField("shown");
+            shown.setAccessible(true);
+            StringBuilder out = new StringBuilder("[");
+            for (Object row : (java.util.List<?>) shown.get(mc.screen)) {
+                Field label = row.getClass().getDeclaredField("label");
+                Field locations = row.getClass().getDeclaredField("locations");
+                label.setAccessible(true);
+                locations.setAccessible(true);
+                out.append(label.get(row)).append(" x").append(((java.util.List<?>) locations.get(row)).size()).append('|');
+            }
+            return out.append(']').toString();
+        } catch (ReflectiveOperationException e) {
+            return "n/a (" + e + ")";
+        }
+    }
+
+    /** The books the Enchanting Index has this client showing glowing. */
+    private static Object indexGlows() {
+        try {
+            Field f = Class.forName("com.linc.spectralenchantments.client.EnchantingIndexClient").getDeclaredField("GLOWS");
+            f.setAccessible(true);
+            return ((java.util.List<?>) f.get(null)).size();
+        } catch (ReflectiveOperationException e) {
+            return "n/a (" + e + ")";
+        }
+    }
+
+    /** The logs Branch Finding has this client outlining. */
+    private static Object branchOutlines() {
+        try {
+            Field f = Class.forName("com.linc.spectralenchantments.client.BranchFindingClient").getDeclaredField("HIGHLIGHTS");
+            f.setAccessible(true);
+            return ((Map<?, ?>) f.get(null)).size();
+        } catch (ReflectiveOperationException e) {
+            return "n/a (" + e + ")";
+        }
     }
 
     /** Players this client shows studying or copying at a lectern. */

@@ -44,6 +44,7 @@ public final class SpectralEnchantments {
     static {
         CONDITION_CODECS.register("enchantment_enabled", () -> EnchantmentEnabledCondition.CODEC);
         CONDITION_CODECS.register("enchantment_treasure_only", () -> EnchantmentTreasureOnlyCondition.CODEC);
+        CONDITION_CODECS.register("feature_enabled", () -> FeatureEnabledCondition.CODEC);
     }
 
     public SpectralEnchantments(IEventBus modBus, ModContainer container) {
@@ -51,6 +52,7 @@ public final class SpectralEnchantments {
         container.registerConfig(ModConfig.Type.SERVER, SpectralConfig.SERVER_SPEC);
         CONDITION_CODECS.register(modBus);
         ModEntities.ENTITY_TYPES.register(modBus);
+        ModItems.ITEMS.register(modBus);
         ModComponents.COMPONENTS.register(modBus);
         ModEffects.EFFECTS.register(modBus);
         ModAttachments.ATTACHMENT_TYPES.register(modBus);

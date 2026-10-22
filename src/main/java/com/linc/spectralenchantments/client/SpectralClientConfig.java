@@ -7,6 +7,8 @@ public final class SpectralClientConfig {
     public static final ModConfigSpec SPEC;
     private static final ModConfigSpec.DoubleValue SHADER_BRIGHTNESS;
     private static final ModConfigSpec.BooleanValue SPRINGY_SEATED;
+    private static final ModConfigSpec.IntValue INDEX_GLOW_SECONDS;
+    private static final ModConfigSpec.BooleanValue INDEX_GLOW_THROUGH_WALLS;
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
@@ -18,6 +20,15 @@ public final class SpectralClientConfig {
                 .comment("Players bouncing on a Springy ghost slime are drawn sitting on it.")
                 .translation("spectral_enchantments.configuration.springySeated")
                 .define("springySeated", true);
+        INDEX_GLOW_SECONDS = builder
+                .comment("How long a book picked in the Enchanting Index glows on its shelf, in seconds. It stops sooner once the",
+                        "book is taken out.")
+                .translation("spectral_enchantments.configuration.enchantingIndex.glowSeconds")
+                .defineInRange("enchantingIndex.glowSeconds", 30, 1, 600);
+        INDEX_GLOW_THROUGH_WALLS = builder
+                .comment("Whether a book picked in the Enchanting Index can be seen glowing through walls.")
+                .translation("spectral_enchantments.configuration.enchantingIndex.glowThroughWalls")
+                .define("enchantingIndex.glowThroughWalls", true);
         SPEC = builder.build();
     }
 
@@ -29,5 +40,13 @@ public final class SpectralClientConfig {
 
     static boolean springySeated() {
         return SPEC.isLoaded() ? SPRINGY_SEATED.get() : SPRINGY_SEATED.getDefault();
+    }
+
+    public static int indexGlowSeconds() {
+        return SPEC.isLoaded() ? INDEX_GLOW_SECONDS.get() : INDEX_GLOW_SECONDS.getDefault();
+    }
+
+    public static boolean indexGlowThroughWalls() {
+        return SPEC.isLoaded() ? INDEX_GLOW_THROUGH_WALLS.get() : INDEX_GLOW_THROUGH_WALLS.getDefault();
     }
 }

@@ -12,15 +12,15 @@ import net.neoforged.neoforge.common.ModConfigSpec;
  *
  * <ul>
  *   <li>Common ({@code config/spectral_enchantments-common.toml}): switching each enchantment off, read when data
- *       packs load, so a change takes effect after a restart (or {@code /reload}); and switching enchantment study at
- *       lecterns off, which takes effect at once.</li>
+ *       packs load, so a change takes effect after a restart (or {@code /reload}); switching enchantment study at
+ *       lecterns off, which takes effect at once; and switching the Enchanting Index off.</li>
  *   <li>Server ({@code serverconfig/spectral_enchantments-server.toml} in each world, synced to clients):
  *       Broad Breaker areas, Far Miner reaches and speed, and Branch Finding's
  *       duration, search limit and cooldown, Animated's follow range, radii, deployment time and recall distance, Catapulting's
  *       durability costs, item damage and block placing, Explosive Bolts' fire spray and explosion, Doppelganger's
  *       lure radius, range, cooldown and emote timing, how curses are revealed and how long the Cursed effect lasts, the Curse of Possession's possessed weapons, and the
  *       Curse of Haunting's ghost, High Jump's heights and charge timeout, Springy's bounce, and the curse chances, experience costs and timing of studying and copying
- *       enchantments at a lectern.</li>
+ *       enchantments at a lectern, and the Enchanting Index's search range, shelf limit and cooldown.</li>
  * </ul>
  */
 public final class SpectralConfig {
@@ -71,6 +71,7 @@ public final class SpectralConfig {
     private static final ModConfigSpec.BooleanValue STUDY_ENABLED;
     private static final ModConfigSpec.BooleanValue STUDYING_ENABLED;
     private static final ModConfigSpec.BooleanValue COPYING_ENABLED;
+    private static final ModConfigSpec.BooleanValue ENCHANTING_INDEX_ENABLED;
 
     public static final ModConfigSpec SERVER_SPEC;
     private static final ModConfigSpec.ConfigValue<List<? extends Integer>> BREAKER_AREAS;
@@ -149,6 +150,9 @@ public final class SpectralConfig {
     private static final ModConfigSpec.IntValue COPYING_XP_COST;
     private static final ModConfigSpec.IntValue COPYING_DURATION;
     private static final ModConfigSpec.DoubleValue STUDY_TREASURE_MULTIPLIER;
+    private static final ModConfigSpec.IntValue ENCHANTING_INDEX_RADIUS;
+    private static final ModConfigSpec.IntValue ENCHANTING_INDEX_MAX_CONNECTED;
+    private static final ModConfigSpec.IntValue ENCHANTING_INDEX_COOLDOWN;
 
     static {
         ModConfigSpec.Builder common = new ModConfigSpec.Builder();
@@ -312,6 +316,12 @@ public final class SpectralConfig {
                         "enchantments is written, at level I, into the book. The enchanted book is kept.")
                 .translation("spectral_enchantments.configuration.enchantmentStudy.copying.enabled")
                 .define("enchantmentStudy.copying.enabled", true);
+        ENCHANTING_INDEX_ENABLED = common
+                .comment("Whether the Enchanting Index can be crafted and used. When false its recipe is gone, it leaves the",
+                        "creative tab and using one does nothing. Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.enchantingIndex.enabled")
+                .worldRestart()
+                .define("enchantingIndex.enabled", true);
         COMMON_SPEC = common.build();
 
         ModConfigSpec.Builder server = new ModConfigSpec.Builder();
@@ -674,6 +684,21 @@ public final class SpectralConfig {
                         "(Mending and the like; curses don't count). 1 for no extra cost.")
                 .translation("spectral_enchantments.configuration.enchantmentStudy.treasureMultiplier")
                 .defineInRange(List.of("enchantmentStudy", "treasureMultiplier"), 2.0, 1.0, 10.0);
+        ENCHANTING_INDEX_RADIUS = server
+                .comment("How far the Enchanting Index looks for enchanted books when used in the air, in blocks each way from the",
+                        "player (a cube).")
+                .translation("spectral_enchantments.configuration.enchantingIndex.radius")
+                .defineInRange(List.of("enchantingIndex", "radius"), 16, 8, 32);
+        ENCHANTING_INDEX_MAX_CONNECTED = server
+                .comment("The most bookshelves (and book piles) one use of the Enchanting Index on a bookshelf searches, nearest",
+                        "first, when it follows the shelves joined to the one used on. Bounds the work done for huge libraries.")
+                .translation("spectral_enchantments.configuration.enchantingIndex.maxConnectedBlocks")
+                .defineInRange(List.of("enchantingIndex", "maxConnectedBlocks"), 512, 16, 4096);
+        ENCHANTING_INDEX_COOLDOWN = server
+                .comment("Ticks (20 per second) before the Enchanting Index can be used again after a use, so it can't be",
+                        "spammed. 0 for none.")
+                .translation("spectral_enchantments.configuration.enchantingIndex.cooldownTicks")
+                .defineInRange(List.of("enchantingIndex", "cooldownTicks"), 40, 0, 1200);
         SERVER_SPEC = server.build();
     }
 
@@ -825,6 +850,25 @@ public final class SpectralConfig {
     public static boolean copyingEnabled() {
         return COMMON_SPEC.isLoaded() ? STUDY_ENABLED.get() && COPYING_ENABLED.get()
                 : STUDY_ENABLED.getDefault() && COPYING_ENABLED.getDefault();
+    }
+
+    public static boolean enchantingIndexEnabled() {
+        return COMMON_SPEC.isLoaded() ? ENCHANTING_INDEX_ENABLED.get() : ENCHANTING_INDEX_ENABLED.getDefault();
+    }
+
+    /** How far the Enchanting Index searches around the player, in blocks each way. */
+    public static int enchantingIndexRadius() {
+        return SERVER_SPEC.isLoaded() ? ENCHANTING_INDEX_RADIUS.get() : ENCHANTING_INDEX_RADIUS.getDefault();
+    }
+
+    /** The most joined shelves one use of the Enchanting Index on a shelf searches. */
+    public static int enchantingIndexMaxConnected() {
+        return SERVER_SPEC.isLoaded() ? ENCHANTING_INDEX_MAX_CONNECTED.get() : ENCHANTING_INDEX_MAX_CONNECTED.getDefault();
+    }
+
+    /** Item cooldown after a use of the Enchanting Index, in ticks. */
+    public static int enchantingIndexCooldownTicks() {
+        return SERVER_SPEC.isLoaded() ? ENCHANTING_INDEX_COOLDOWN.get() : ENCHANTING_INDEX_COOLDOWN.getDefault();
     }
 
     /** Broad Breaker's area width at {@code level} (levels above III use III's). */
