@@ -12,6 +12,8 @@ import com.linc.spectralenchantments.curse.Haunting;
 import com.linc.spectralenchantments.curse.PossessedWeaponEntity;
 import com.linc.spectralenchantments.doppelganger.Doppelganger;
 import com.linc.spectralenchantments.explosive.ExplosiveBolts;
+import com.linc.spectralenchantments.index.EnchantingIndexItem;
+import com.linc.spectralenchantments.index.IndexLectern;
 import com.linc.spectralenchantments.network.ModNetwork;
 import com.linc.spectralenchantments.spectral.WeaponStrike;
 import com.linc.spectralenchantments.study.EnchantmentStudy;
@@ -26,6 +28,7 @@ import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.common.conditions.ICondition;
 import net.neoforged.neoforge.event.AddPackFindersEvent;
@@ -64,6 +67,8 @@ public final class SpectralEnchantments {
         });
         modBus.addListener(ModNetwork::register);
         modBus.addListener(SpectralEnchantments::addPacks);
+        modBus.addListener((FMLCommonSetupEvent event) ->
+                event.enqueueWork(() -> EnchantingIndexItem.registerCauldronWashing(ModItems.ENCHANTING_INDEX.get())));
         NeoForge.EVENT_BUS.register(CommonEvents.class);
         NeoForge.EVENT_BUS.register(FarMiner.class);
         NeoForge.EVENT_BUS.register(Gather.class);
@@ -78,6 +83,7 @@ public final class SpectralEnchantments {
         NeoForge.EVENT_BUS.register(HighJump.class);
         NeoForge.EVENT_BUS.register(Springy.class);
         NeoForge.EVENT_BUS.register(EnchantmentStudy.class);
+        NeoForge.EVENT_BUS.register(IndexLectern.class);
         NeoForge.EVENT_BUS.addListener((TagsUpdatedEvent event) -> BetterCombatCompat.clearCache());
         ArsNouveauCompat.register();
         SableCompat.register();

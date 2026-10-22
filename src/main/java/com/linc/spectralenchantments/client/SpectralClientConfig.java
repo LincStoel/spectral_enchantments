@@ -9,6 +9,7 @@ public final class SpectralClientConfig {
     private static final ModConfigSpec.BooleanValue SPRINGY_SEATED;
     private static final ModConfigSpec.IntValue INDEX_GLOW_SECONDS;
     private static final ModConfigSpec.BooleanValue INDEX_GLOW_THROUGH_WALLS;
+    private static final ModConfigSpec.ConfigValue<String> INDEX_GLOW_COLOR;
 
     static {
         ModConfigSpec.Builder builder = new ModConfigSpec.Builder();
@@ -29,6 +30,11 @@ public final class SpectralClientConfig {
                 .comment("Whether a book picked in the Enchanting Index can be seen glowing through walls.")
                 .translation("spectral_enchantments.configuration.enchantingIndex.glowThroughWalls")
                 .define("enchantingIndex.glowThroughWalls", true);
+        INDEX_GLOW_COLOR = builder
+                .comment("The colour books picked in an undyed Enchanting Index glow, as #RRGGBB. A dyed index's books glow in",
+                        "its dye colour.")
+                .translation("spectral_enchantments.configuration.enchantingIndex.glowColor")
+                .define("enchantingIndex.glowColor", "#FFC759", value -> value instanceof String text && parseColor(text) >= 0);
         SPEC = builder.build();
     }
 
@@ -48,5 +54,26 @@ public final class SpectralClientConfig {
 
     public static boolean indexGlowThroughWalls() {
         return SPEC.isLoaded() ? INDEX_GLOW_THROUGH_WALLS.get() : INDEX_GLOW_THROUGH_WALLS.getDefault();
+    }
+
+    /** The glow colour for an undyed Enchanting Index, as RGB. */
+    public static int indexGlowColor() {
+        return parseColor(SPEC.isLoaded() ? INDEX_GLOW_COLOR.get() : INDEX_GLOW_COLOR.getDefault());
+    }
+
+    /** {@code #RRGGBB} (the # optional) as RGB, or -1 if it isn't one. */
+    private static int parseColor(String text) {
+        String hex = text.strip();
+        if (hex.startsWith("#")) {
+            hex = hex.substring(1);
+        }
+        if (hex.length() != 6) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(hex, 16);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
     }
 }

@@ -12,6 +12,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.WeakHashMap;
 import net.minecraft.core.BlockPos;
@@ -31,6 +32,7 @@ import net.minecraft.util.StringUtil;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.ItemStackLinkedSet;
+import net.minecraft.world.item.component.DyedItemColor;
 import net.minecraft.world.item.enchantment.ItemEnchantments;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -87,13 +89,28 @@ public final class EnchantingIndex {
      * block entities of loaded chunks are looked at, never each block in the cube.
      */
     public static List<BlockPos> holdersAround(Level level, BlockPos center, int radius) {
+        return holdersIn(level, center.offset(-radius, -radius, -radius), center.offset(radius, radius, radius), center);
+    }
+
+    /**
+     * Every book holder in a cube {@code size} blocks wide around a lectern holding the index, nearest first. An odd
+     * size has the lectern dead centre; an even one, which has no centre block, reaches one block further down, north
+     * and west of it than up, south and east (32: 16 one way, 15 the other).
+     */
+    public static List<BlockPos> holdersAroundLectern(Level level, BlockPos lectern, int size) {
+        BlockPos min = lectern.offset(-size / 2, -size / 2, -size / 2);
+        return holdersIn(level, min, min.offset(size - 1, size - 1, size - 1), lectern);
+    }
+
+    /** Every book holder from {@code min} to {@code max} (inclusive), nearest {@code center} first. */
+    private static List<BlockPos> holdersIn(Level level, BlockPos min, BlockPos max, BlockPos center) {
         List<BlockPos> found = new ArrayList<>();
-        int minX = center.getX() - radius;
-        int maxX = center.getX() + radius;
-        int minY = center.getY() - radius;
-        int maxY = center.getY() + radius;
-        int minZ = center.getZ() - radius;
-        int maxZ = center.getZ() + radius;
+        int minX = min.getX();
+        int maxX = max.getX();
+        int minY = min.getY();
+        int maxY = max.getY();
+        int minZ = min.getZ();
+        int maxZ = max.getZ();
         for (int chunkX = SectionPos.blockToSectionCoord(minX); chunkX <= SectionPos.blockToSectionCoord(maxX); chunkX++) {
             for (int chunkZ = SectionPos.blockToSectionCoord(minZ); chunkZ <= SectionPos.blockToSectionCoord(maxZ); chunkZ++) {
                 LevelChunk chunk = level.getChunkSource().getChunkNow(chunkX, chunkZ);
@@ -175,15 +192,19 @@ public final class EnchantingIndex {
         return entries;
     }
 
-    /** Lists the books in {@code holders} and opens the index's page on the player's screen. */
-    public static void open(ServerPlayer player, List<BlockPos> holders) {
+    /**
+     * Lists the books in {@code holders} and opens the index's page on the player's screen. The books picked there
+     * glow in {@code index}'s dye colour, if it has one.
+     */
+    public static void open(ServerPlayer player, List<BlockPos> holders, ItemStack index) {
         Catalogue catalogue = catalogue(player.level(), holders);
         Set<Location> locations = new HashSet<>();
         for (Entry entry : catalogue.entries()) {
             locations.addAll(entry.locations());
         }
         LISTINGS.put(player, new Listing(player.level().dimension(), locations));
-        PacketDistributor.sendToPlayer(player, new EnchantingIndexPayload(catalogue.entries(), catalogue.truncated()));
+        PacketDistributor.sendToPlayer(player, new EnchantingIndexPayload(catalogue.entries(), catalogue.truncated(),
+                Optional.ofNullable(index.get(DataComponents.DYED_COLOR)).map(DyedItemColor::rgb)));
         player.level().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.BOOK_PAGE_TURN,
                 SoundSource.PLAYERS, 1f, 1f);
     }

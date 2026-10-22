@@ -10,6 +10,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
+import net.minecraft.util.FastColor;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
@@ -17,13 +18,11 @@ import net.minecraft.world.phys.shapes.Shapes;
 import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
 
 /**
- * Draws the Enchanting Index's glow on each picked book: a softly pulsing amber pane over the book with a brighter
- * edge, seen through walls unless the client config says otherwise. It fades in, and out over its last second.
+ * Draws the Enchanting Index's glow on each picked book: a softly pulsing pane over the book with a brighter edge, in
+ * the index's colour, seen through walls unless the client config says otherwise. It fades in, and out over its last
+ * second.
  */
 final class EnchantingIndexRenderer {
-    private static final float RED = 1.0f;
-    private static final float GREEN = 0.78f;
-    private static final float BLUE = 0.35f;
     private static final float FILL_ALPHA = 0.35f;
     private static final float EDGE_ALPHA = 0.9f;
 
@@ -85,7 +84,7 @@ final class EnchantingIndexRenderer {
             if (alpha > 0f) {
                 BookSlotShapes.Shape shape = shape(mc, glow);
                 place(poseStack, glow, cam, shape);
-                fillBox(poseStack.last(), fill, shape.box().move(-0.5, 0, -0.5), alpha);
+                fillBox(poseStack.last(), fill, shape.box().move(-0.5, 0, -0.5), glow.color(), alpha);
                 poseStack.popPose();
             }
         }
@@ -98,7 +97,10 @@ final class EnchantingIndexRenderer {
             if (alpha > 0f) {
                 BookSlotShapes.Shape shape = shape(mc, glow);
                 place(poseStack, glow, cam, shape);
-                AreaOutlineRenderer.renderShape(poseStack, edge, Shapes.create(shape.box()), -0.5, 0, -0.5, RED, GREEN, BLUE, alpha);
+                int color = glow.color();
+                AreaOutlineRenderer.renderShape(poseStack, edge, Shapes.create(shape.box()), -0.5, 0, -0.5,
+                        FastColor.ARGB32.red(color) / 255f, FastColor.ARGB32.green(color) / 255f,
+                        FastColor.ARGB32.blue(color) / 255f, alpha);
                 poseStack.popPose();
             }
         }
@@ -124,27 +126,28 @@ final class EnchantingIndexRenderer {
         return in * out;
     }
 
-    private static void fillBox(PoseStack.Pose pose, VertexConsumer consumer, AABB box, float alpha) {
+    private static void fillBox(PoseStack.Pose pose, VertexConsumer consumer, AABB box, int color, float alpha) {
         float x0 = (float) box.minX;
         float y0 = (float) box.minY;
         float z0 = (float) box.minZ;
         float x1 = (float) box.maxX;
         float y1 = (float) box.maxY;
         float z1 = (float) box.maxZ;
-        quad(pose, consumer, alpha, x0, y0, z0, x1, y0, z0, x1, y1, z0, x0, y1, z0);
-        quad(pose, consumer, alpha, x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1);
-        quad(pose, consumer, alpha, x0, y0, z0, x0, y0, z1, x0, y1, z1, x0, y1, z0);
-        quad(pose, consumer, alpha, x1, y0, z0, x1, y0, z1, x1, y1, z1, x1, y1, z0);
-        quad(pose, consumer, alpha, x0, y0, z0, x1, y0, z0, x1, y0, z1, x0, y0, z1);
-        quad(pose, consumer, alpha, x0, y1, z0, x1, y1, z0, x1, y1, z1, x0, y1, z1);
+        int argb = FastColor.ARGB32.color(Mth.floor(alpha * 255f), color);
+        quad(pose, consumer, argb, x0, y0, z0, x1, y0, z0, x1, y1, z0, x0, y1, z0);
+        quad(pose, consumer, argb, x0, y0, z1, x1, y0, z1, x1, y1, z1, x0, y1, z1);
+        quad(pose, consumer, argb, x0, y0, z0, x0, y0, z1, x0, y1, z1, x0, y1, z0);
+        quad(pose, consumer, argb, x1, y0, z0, x1, y0, z1, x1, y1, z1, x1, y1, z0);
+        quad(pose, consumer, argb, x0, y0, z0, x1, y0, z0, x1, y0, z1, x0, y0, z1);
+        quad(pose, consumer, argb, x0, y1, z0, x1, y1, z0, x1, y1, z1, x0, y1, z1);
     }
 
-    private static void quad(PoseStack.Pose pose, VertexConsumer consumer, float alpha,
+    private static void quad(PoseStack.Pose pose, VertexConsumer consumer, int argb,
                              float ax, float ay, float az, float bx, float by, float bz,
                              float cx, float cy, float cz, float dx, float dy, float dz) {
-        consumer.addVertex(pose, ax, ay, az).setColor(RED, GREEN, BLUE, alpha);
-        consumer.addVertex(pose, bx, by, bz).setColor(RED, GREEN, BLUE, alpha);
-        consumer.addVertex(pose, cx, cy, cz).setColor(RED, GREEN, BLUE, alpha);
-        consumer.addVertex(pose, dx, dy, dz).setColor(RED, GREEN, BLUE, alpha);
+        consumer.addVertex(pose, ax, ay, az).setColor(argb);
+        consumer.addVertex(pose, bx, by, bz).setColor(argb);
+        consumer.addVertex(pose, cx, cy, cz).setColor(argb);
+        consumer.addVertex(pose, dx, dy, dz).setColor(argb);
     }
 }

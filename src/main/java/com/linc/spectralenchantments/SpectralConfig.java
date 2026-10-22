@@ -20,7 +20,7 @@ import net.neoforged.neoforge.common.ModConfigSpec;
  *       durability costs, item damage and block placing, Explosive Bolts' fire spray and explosion, Doppelganger's
  *       lure radius, range, cooldown and emote timing, how curses are revealed and how long the Cursed effect lasts, the Curse of Possession's possessed weapons, and the
  *       Curse of Haunting's ghost, High Jump's heights and charge timeout, Springy's bounce, and the curse chances, experience costs and timing of studying and copying
- *       enchantments at a lectern, and the Enchanting Index's search range, shelf limit and cooldown.</li>
+ *       enchantments at a lectern, and the Enchanting Index's search ranges, shelf limit and cooldown.</li>
  * </ul>
  */
 public final class SpectralConfig {
@@ -151,6 +151,7 @@ public final class SpectralConfig {
     private static final ModConfigSpec.IntValue COPYING_DURATION;
     private static final ModConfigSpec.DoubleValue STUDY_TREASURE_MULTIPLIER;
     private static final ModConfigSpec.IntValue ENCHANTING_INDEX_RADIUS;
+    private static final ModConfigSpec.IntValue ENCHANTING_INDEX_LECTERN_SIZE;
     private static final ModConfigSpec.IntValue ENCHANTING_INDEX_MAX_CONNECTED;
     private static final ModConfigSpec.IntValue ENCHANTING_INDEX_COOLDOWN;
 
@@ -689,6 +690,11 @@ public final class SpectralConfig {
                         "player (a cube).")
                 .translation("spectral_enchantments.configuration.enchantingIndex.radius")
                 .defineInRange(List.of("enchantingIndex", "radius"), 16, 8, 32);
+        ENCHANTING_INDEX_LECTERN_SIZE = server
+                .comment("How wide a cube the Enchanting Index searches when used from a lectern, in blocks. An odd width is",
+                        "centred on the lectern; an even one reaches a block further down, north and west than up, south and east.")
+                .translation("spectral_enchantments.configuration.enchantingIndex.lecternSize")
+                .defineInRange(List.of("enchantingIndex", "lecternSize"), 32, 8, 64);
         ENCHANTING_INDEX_MAX_CONNECTED = server
                 .comment("The most bookshelves (and book piles) one use of the Enchanting Index on a bookshelf searches, nearest",
                         "first, when it follows the shelves joined to the one used on. Bounds the work done for huge libraries.")
@@ -859,6 +865,11 @@ public final class SpectralConfig {
     /** How far the Enchanting Index searches around the player, in blocks each way. */
     public static int enchantingIndexRadius() {
         return SERVER_SPEC.isLoaded() ? ENCHANTING_INDEX_RADIUS.get() : ENCHANTING_INDEX_RADIUS.getDefault();
+    }
+
+    /** How wide a cube the Enchanting Index searches around a lectern it's on, in blocks. */
+    public static int enchantingIndexLecternSize() {
+        return SERVER_SPEC.isLoaded() ? ENCHANTING_INDEX_LECTERN_SIZE.get() : ENCHANTING_INDEX_LECTERN_SIZE.getDefault();
     }
 
     /** The most joined shelves one use of the Enchanting Index on a shelf searches. */

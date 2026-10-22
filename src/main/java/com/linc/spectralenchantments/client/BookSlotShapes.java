@@ -27,6 +27,8 @@ final class BookSlotShapes {
     private static final int[][] SHELF_COLUMNS = {{1, 6}, {6, 11}, {11, 15}};
     /** The bottom and top of the upper and lower row of a chiseled shelf's books, in pixels. */
     private static final int[][] SHELF_ROWS = {{9, 15}, {1, 7}};
+    /** How far a chiseled shelf's books reach back into it from the face, so the whole book glows, not just its spine. */
+    private static final double SHELF_BOOK_DEPTH = 4 / 16.0;
     /**
      * One of Supplementaries' flat books: 10 by 8 pixels, centred on the block, four pixels thick, before it is turned
      * about the block's middle (see {@link #pileAngle}).
@@ -73,8 +75,9 @@ final class BookSlotShapes {
     }
 
     /**
-     * A chiseled shelf's slot: a thin box over its books on the front face. Columns run left to right as seen from
-     * the front, the same way vanilla reads which slot a click hit.
+     * A chiseled shelf's slot: a box around the books in it, from just in front of the face to
+     * {@link #SHELF_BOOK_DEPTH} into the shelf. Columns run left to right as seen from the front, the same way vanilla
+     * reads which slot a click hit.
      */
     private static AABB shelfSlot(Direction facing, int slot) {
         double u0 = SHELF_COLUMNS[slot % 3][0] / 16.0;
@@ -82,10 +85,10 @@ final class BookSlotShapes {
         double y0 = SHELF_ROWS[slot / 3][0] / 16.0;
         double y1 = SHELF_ROWS[slot / 3][1] / 16.0;
         return switch (facing) {
-            case NORTH -> new AABB(1 - u1, y0, -RAISE, 1 - u0, y1, 0);
-            case SOUTH -> new AABB(u0, y0, 1, u1, y1, 1 + RAISE);
-            case WEST -> new AABB(-RAISE, y0, u0, 0, y1, u1);
-            case EAST -> new AABB(1, y0, 1 - u1, 1 + RAISE, y1, 1 - u0);
+            case NORTH -> new AABB(1 - u1, y0, -RAISE, 1 - u0, y1, SHELF_BOOK_DEPTH);
+            case SOUTH -> new AABB(u0, y0, 1 - SHELF_BOOK_DEPTH, u1, y1, 1 + RAISE);
+            case WEST -> new AABB(-RAISE, y0, u0, SHELF_BOOK_DEPTH, y1, u1);
+            case EAST -> new AABB(1 - SHELF_BOOK_DEPTH, y0, 1 - u1, 1 + RAISE, y1, 1 - u0);
             default -> new AABB(0, 0, 0, 1, 1, 1).inflate(RAISE);
         };
     }

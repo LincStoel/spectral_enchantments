@@ -4,6 +4,7 @@ import com.linc.spectralenchantments.index.EnchantingIndex;
 import com.linc.spectralenchantments.network.EnchantingIndexPayload;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
@@ -13,8 +14,8 @@ public final class EnchantingIndexClient {
     static final int FADE_IN_TICKS = 4;
     static final int FADE_OUT_TICKS = 20;
 
-    /** A book glowing in {@code slot} of the holder at {@code pos}, from {@code startTick} to {@code endTick}. */
-    record Glow(BlockPos pos, int slot, long startTick, long endTick) {}
+    /** A book glowing {@code color} (RGB) in {@code slot} of the holder at {@code pos}, from {@code startTick} to {@code endTick}. */
+    record Glow(BlockPos pos, int slot, int color, long startTick, long endTick) {}
 
     static final List<Glow> GLOWS = new ArrayList<>();
     static long ticks;
@@ -23,11 +24,14 @@ public final class EnchantingIndexClient {
     private EnchantingIndexClient() {}
 
     public static void handle(EnchantingIndexPayload payload) {
-        Minecraft.getInstance().setScreen(new EnchantingIndexScreen(payload.entries(), payload.truncated()));
+        Minecraft.getInstance().setScreen(new EnchantingIndexScreen(payload.entries(), payload.truncated(), payload.dye()));
     }
 
-    /** Makes the books at {@code locations} glow, in place of any picked before. */
-    static void mark(List<EnchantingIndex.Location> locations) {
+    /**
+     * Makes the books at {@code locations} glow, in place of any picked before: in the index's {@code dye} colour, or
+     * the configured one for an undyed index.
+     */
+    static void mark(List<EnchantingIndex.Location> locations, Optional<Integer> dye) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) {
             return;
@@ -35,8 +39,9 @@ public final class EnchantingIndexClient {
         syncLevel(mc.level);
         GLOWS.clear();
         long end = ticks + SpectralClientConfig.indexGlowSeconds() * 20L;
+        int color = dye.orElseGet(SpectralClientConfig::indexGlowColor);
         for (EnchantingIndex.Location location : locations) {
-            GLOWS.add(new Glow(location.pos(), location.slot(), ticks, end));
+            GLOWS.add(new Glow(location.pos(), location.slot(), color, ticks, end));
         }
     }
 

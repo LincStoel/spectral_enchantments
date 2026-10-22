@@ -1,9 +1,12 @@
 package com.linc.spectralenchantments.client;
 
 import com.linc.spectralenchantments.ModEffects;
+import com.linc.spectralenchantments.SpectralConfig;
 import com.linc.spectralenchantments.SpectralEnchantments;
 import com.linc.spectralenchantments.index.EnchantingIndex;
 import com.linc.spectralenchantments.network.EnchantingIndexRenamePayload;
+import com.linc.spectralenchantments.study.EnchantmentStudy;
+import com.linc.spectralenchantments.study.StudyMode;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -11,6 +14,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
+import javax.annotation.Nullable;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -48,6 +53,8 @@ final class EnchantingIndexScreen extends Screen {
 
     private static final int INK = 0xFF3B2614;
     private static final int FADED_INK = 0xFF7A5C3A;
+    /** Laid over a filter tile no listed book passes, fading it into the page. */
+    private static final int UNUSED_TILE_WASH = 0xB0A09A90;
     private static final int HOVER_WASH = 0x305A3A1E;
     private static final int EDIT_WASH = 0x40FFF4D8;
 
@@ -115,10 +122,14 @@ final class EnchantingIndexScreen extends Screen {
     private final List<Row> rows = new ArrayList<>();
     private final List<Row> shown = new ArrayList<>();
     private final boolean truncated;
+    /** The index's dye colour, which picked books glow in. */
+    private final Optional<Integer> dye;
     /** Which item types each enchantment goes on (as filter bits), worked out once per enchantment. */
     private final Map<Holder<Enchantment>, Integer> enchantmentFilters = new HashMap<>();
     private int books;
     private int selectedFilters;
+    /** The filters at least one listed book passes; the rest are greyed out and can't be picked. */
+    private int usedFilters;
     private String query = "";
     private int scroll;
     private boolean draggingScroll;
@@ -134,9 +145,10 @@ final class EnchantingIndexScreen extends Screen {
     private int listTop;
     private int visibleRows;
 
-    EnchantingIndexScreen(List<EnchantingIndex.Entry> entries, boolean truncated) {
+    EnchantingIndexScreen(List<EnchantingIndex.Entry> entries, boolean truncated, Optional<Integer> dye) {
         super(Component.translatable("gui.spectral_enchantments.enchanting_index.title"));
         this.truncated = truncated;
+        this.dye = dye;
         for (EnchantingIndex.Entry entry : entries) {
             Row row = new Row(entry.book(), entry.locations());
             describe(row);
@@ -268,6 +280,10 @@ final class EnchantingIndexScreen extends Screen {
 
     /** Rebuilds the shown rows from the search and the filters (any selected filter will do). */
     private void refilter() {
+        usedFilters = 0;
+        for (Row row : rows) {
+            usedFilters |= row.filters;
+        }
         shown.clear();
         String needle = query.strip().toLowerCase(Locale.ROOT);
         for (Row row : rows) {
@@ -322,11 +338,20 @@ final class EnchantingIndexScreen extends Screen {
             int x = tileX(filter.ordinal());
             int y = tileY(filter.ordinal());
             boolean selected = (selectedFilters & filter.bit()) != 0;
-            graphics.blitSprite(selected ? TILE_SELECTED : hoveredTile == filter.ordinal() ? TILE_HOVER : TILE, x, y, TILE_SIZE, TILE_SIZE);
+            boolean used = (usedFilters & filter.bit()) != 0;
+            graphics.blitSprite(selected ? TILE_SELECTED : used && hoveredTile == filter.ordinal() ? TILE_HOVER : TILE,
+                    x, y, TILE_SIZE, TILE_SIZE);
             if (filter == Filter.CURSE) {
                 graphics.blit(x + 2, y + 2, 0, 16, 16, minecraft.getMobEffectTextures().get(ModEffects.CURSED));
             } else {
                 graphics.renderItem(filter.icon, x + 2, y + 2);
+            }
+            if (!used) {
+                // Above the item, which is drawn well forward of the page.
+                graphics.pose().pushPose();
+                graphics.pose().translate(0, 0, 200);
+                graphics.fill(x + 1, y + 1, x + TILE_SIZE - 1, y + TILE_SIZE - 1, UNUSED_TILE_WASH);
+                graphics.pose().popPose();
             }
         }
         graphics.blitSprite(DIVIDER, left + (PAGE_WIDTH - DIVIDER_WIDTH) / 2, top + 96, DIVIDER_WIDTH, DIVIDER_HEIGHT);
@@ -342,7 +367,13 @@ final class EnchantingIndexScreen extends Screen {
         if (hoveredRow >= 0) {
             renderRowTooltip(graphics, shown.get(hoveredRow), mouseX, mouseY);
         } else if (hoveredTile >= 0) {
-            graphics.renderTooltip(font, Filter.values()[hoveredTile].label(), mouseX, mouseY);
+            Filter filter = Filter.values()[hoveredTile];
+            if ((usedFilters & filter.bit()) != 0) {
+                graphics.renderTooltip(font, filter.label(), mouseX, mouseY);
+            } else {
+                graphics.renderComponentTooltip(font, List.of(filter.label(), Component.translatable(
+                        "gui.spectral_enchantments.enchanting_index.filter_unused").withStyle(ChatFormatting.GRAY)), mouseX, mouseY);
+            }
         }
     }
 
@@ -413,11 +444,34 @@ final class EnchantingIndexScreen extends Screen {
 
     private void renderRowTooltip(GuiGraphics graphics, Row row, int mouseX, int mouseY) {
         List<Component> lines = new ArrayList<>(getTooltipFromItem(minecraft, row.book));
+        Component copyCost = copyCost(row.book);
+        if (copyCost != null) {
+            lines.add(copyCost);
+        }
         int copies = row.locations.size();
         lines.add(Component.translatable(copies == 1 ? "gui.spectral_enchantments.enchanting_index.shelved.one"
                 : "gui.spectral_enchantments.enchanting_index.shelved.many", copies).withStyle(ChatFormatting.GOLD));
         lines.add(Component.translatable("gui.spectral_enchantments.enchanting_index.hint").withStyle(ChatFormatting.DARK_GRAY));
         graphics.renderComponentTooltip(font, lines, mouseX, mouseY, row.book);
+    }
+
+    /**
+     * What copying the book at a lectern costs, as the server works it out. Null when copying is switched off, or for
+     * a book of several enchantments, where it depends on which one the copy rolls.
+     */
+    @Nullable
+    private static Component copyCost(ItemStack book) {
+        ItemEnchantments stored = book.getOrDefault(DataComponents.STORED_ENCHANTMENTS, ItemEnchantments.EMPTY);
+        if (!SpectralConfig.copyingEnabled() || stored.size() != 1) {
+            return null;
+        }
+        Holder<Enchantment> enchantment = stored.keySet().iterator().next();
+        if (EnchantmentStudy.isForbidden(enchantment, StudyMode.COPYING)) {
+            return Component.translatable("gui.spectral_enchantments.enchanting_index.uncopyable").withStyle(ChatFormatting.GRAY);
+        }
+        return Component.translatable("gui.spectral_enchantments.enchanting_index.copy_cost",
+                EnchantmentStudy.xpCost(enchantment, SpectralConfig.copyingXpCost(), SpectralConfig.studyTreasureMultiplier()))
+                .withStyle(ChatFormatting.GREEN);
     }
 
     // ---- Input ----
@@ -433,7 +487,12 @@ final class EnchantingIndexScreen extends Screen {
         }
         int tile = tileAt(mouseX, mouseY);
         if (tile >= 0 && button == 0) {
-            selectedFilters ^= Filter.values()[tile].bit();
+            int bit = Filter.values()[tile].bit();
+            // A greyed-out filter can't be picked, but one picked can always be put back.
+            if ((usedFilters & bit) == 0 && (selectedFilters & bit) == 0) {
+                return true;
+            }
+            selectedFilters ^= bit;
             refilter();
             minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.UI_BUTTON_CLICK, 1f));
             return true;
@@ -508,7 +567,7 @@ final class EnchantingIndexScreen extends Screen {
 
     /** Closes the page and lights up every copy of the row's book. */
     private void pick(Row row) {
-        EnchantingIndexClient.mark(row.locations);
+        EnchantingIndexClient.mark(row.locations, dye);
         minecraft.getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.BOOK_PAGE_TURN, 1f));
         if (minecraft.player != null) {
             int copies = row.locations.size();

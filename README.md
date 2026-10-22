@@ -202,14 +202,15 @@ Both start with a blank book and quill on a lectern. When done, it becomes an en
 
 ## Enchanting Index
 
-A book that catalogues the enchanted books in your library. Crafted from a book and quill, an amethyst shard and a diamond (shapeless). Doesn't stack.
+A book that catalogues the enchanted books in your library. Crafted from a book and quill, an amethyst shard and a diamond (shapeless). Doesn't stack. Its cover can be dyed like leather armour (craft it with dyes; wash it in a water cauldron), so you can tell your libraries' indexes apart.
 
 - **Use it in the air** (or on any other block) to list the enchanted books on every chiseled bookshelf within 16 blocks of you (a cube).
 - **Use it on a chiseled bookshelf** to list the books on that shelf and every shelf joined to it, however far the library runs (up to 512 shelves). Shelves touching only at an edge or corner count as joined.
-- Either way, it then cools down for 2 seconds.
+- **Set it on a lectern** (like any lectern book) and it floats above it as the enchanting table's book does, opening as you come near. Using the lectern lists the books on every chiseled bookshelf in a 32-block-wide cube around it (an odd width is centred on the lectern; an even one reaches a block further down, north and west). Crouch and use the lectern with an empty hand to pop the index off.
+- Either way, it then cools down for 2 seconds (on a lectern, the cooldown is yours, shared with any index you hold).
 - The page lists one row per kind of book: its icon, its name (or its enchantments if it has none, like "Sharpness V +2 more") and how many copies there are. Hover over a row to see its enchantments and curses. Rows with a curse are stained with old blood.
 - **Seek:** search by title or enchantment. Under it are type filters: diamond sword, axe, pickaxe, shovel, hoe, helmet, chestplate, leggings and boots, bow, crossbow, trident, mace, fishing rod, dirt for enchantments that go on anything (like Mending), and Curses. Pick several to see books for any of them.
-- **Click a row** to close the page and make every copy glow on its shelf, over the very slot it sits in, seen through walls. The glow lasts 30 seconds or until the book is taken out.
+- **Click a row** to close the page and make every copy glow on its shelf, over the very slot it sits in, seen through walls. The glow is the colour of the index's dye (amber when undyed; set in the client config) and lasts 30 seconds or until the book is taken out.
 - **Right-click a row** to rename every copy of that book, free. Press Enter to keep the name, Esc to cancel. A blank name takes the custom name off.
 - It finds books in any block in the `spectral_enchantments:enchanting_index/book_holders` block tag whose block entity holds items: chiseled bookshelves, and Supplementaries' book piles (books stacked flat) if it's installed.
 

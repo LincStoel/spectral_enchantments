@@ -1,9 +1,13 @@
 package com.linc.spectralenchantments.client;
 
 import com.linc.spectralenchantments.ModEntities;
+import com.linc.spectralenchantments.ModItems;
 import com.linc.spectralenchantments.SpectralEnchantments;
 import com.linc.spectralenchantments.compat.BetterCombatCompat;
+import com.linc.spectralenchantments.index.EnchantingIndexItem;
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
+import net.minecraft.world.item.component.DyedItemColor;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
@@ -13,6 +17,7 @@ import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
+import net.neoforged.neoforge.client.event.RegisterColorHandlersEvent;
 import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
 import net.neoforged.neoforge.common.NeoForge;
 
@@ -35,7 +40,13 @@ public final class SpectralEnchantmentsClient {
             event.registerEntityRenderer(ModEntities.POSSESSED_WEAPON.get(), PossessedWeaponRenderer::new);
             event.registerEntityRenderer(ModEntities.DOPPELGANGER.get(), PlayerGhostRenderer::new);
             event.registerEntityRenderer(ModEntities.HAUNTING_GHOST.get(), PlayerGhostRenderer::new);
+            // In place of vanilla's lectern renderer, which it falls back on for any book but the Enchanting Index.
+            event.registerBlockEntityRenderer(BlockEntityType.LECTERN, IndexLecternRenderer::new);
         });
+        // Only the cover (layer 0) takes the dye; the pages stay as they are.
+        modBus.addListener((RegisterColorHandlersEvent.Item event) -> event.register((stack, tintIndex) ->
+                tintIndex == 0 ? DyedItemColor.getOrDefault(stack, EnchantingIndexItem.DEFAULT_COLOR) : -1,
+                ModItems.ENCHANTING_INDEX.get()));
         modBus.addListener(SpectralSlotOverlay::register);
         modBus.addListener(HighJumpClient::registerLayers);
         NeoForge.EVENT_BUS.addListener((ClientTickEvent.Post event) -> {
@@ -46,6 +57,7 @@ public final class SpectralEnchantmentsClient {
             StudyClient.tick();
             SpringyClient.tick();
             EnchantingIndexClient.tick();
+            IndexLecternRenderer.tick();
         });
         NeoForge.EVENT_BUS.addListener(StudyClient::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(StudyClient::onRenderHand);
