@@ -298,9 +298,9 @@ None are required.
 |---|---|
 | [Better Combat](https://modrinth.com/mod/better-combat) | Animated and possessed weapons use the weapon's Better Combat attack combo (swing style, damage multiplier, upswing, sound). Items Better Combat can swing count as weapons for Animated and Catapulting. This also covers Simply Swords, which defines its weapons through Better Combat data. |
 | [Ars Nouveau](https://modrinth.com/mod/ars-nouveau) | Enchanting Apparatus recipes for level I of every enchantment and curse (Animated is made from a Loyalty book). Dispel frees a possessed weapon. |
-| [Quark](https://modrinth.com/mod/quark) | Color Runes tint ghost tools, Animated weapons and Doppelganger doubles. Doubles play Quark emotes. Pickarangs can be fired by Catapulting but can't get Far Miner. |
+| [Quark](https://modrinth.com/mod/quark) | Color Runes tint ghost tools, Animated weapons, Doppelganger doubles and Springy's ghost slime. Doubles play Quark emotes. Pickarangs can be fired by Catapulting but can't get Far Miner. |
 | Sable | Catapulting can fire blocks as physics objects (off by default). |
-| [Iris](https://modrinth.com/mod/iris) | Ghost rendering is adjusted to work with shaderpacks. Brightness is set in the client config. |
+| [Iris](https://modrinth.com/mod/iris) | Ghost rendering is adjusted to work with shaderpacks. Brightness is set in the client config. With handheld lighting, an Alarming sword in hand lights up its surroundings. |
 | [Configured](https://modrinth.com/mod/configured) | In-game config screen (Mods → Spectral Enchantments → Config). |
 | [Enchantment Descriptions](https://modrinth.com/mod/enchantment-descriptions) | Shows the provided enchantment descriptions in tooltips. Description lines for hidden curses are hidden with them. |
 | [Supplementaries](https://modrinth.com/mod/supplementaries) | The Enchanting Index lists the enchanted books in book piles (books stacked flat). |
