@@ -191,6 +191,8 @@ public final class HarnessClient {
         out.append(" | indexRows=").append(indexRows(mc));
         out.append(" | indexGlows=").append(indexGlows());
         out.append(" | branchOutlines=").append(branchOutlines());
+        out.append(" | alarmed=").append(alarmed());
+        out.append(" | irisHeldLight=").append(irisHeldLight());
         out.append(" | fps=").append(mc.getFps());
         append("harness-probe.txt", out.toString());
     }
@@ -251,6 +253,41 @@ public final class HarnessClient {
             f.setAccessible(true);
             return ((Map<?, ?>) f.get(null)).size();
         } catch (ReflectiveOperationException e) {
+            return "n/a (" + e + ")";
+        }
+    }
+
+    /** The Alarming swords this client shows glowing and buzzing. */
+    private static Object alarmed() {
+        try {
+            Field f = Class.forName("com.linc.spectralenchantments.client.AlarmingClient").getDeclaredField("ALARMED");
+            f.setAccessible(true);
+            return ((java.util.Set<?>) f.get(null)).size();
+        } catch (ReflectiveOperationException e) {
+            return "n/a (" + e + ")";
+        }
+    }
+
+    /** The main-hand light and colour Iris computes for its held-light uniforms, from a fresh copy of its supplier. */
+    private static Object irisHeldLight() {
+        try {
+            Class<?> supplier = Class.forName("net.irisshaders.iris.uniforms.IdMapUniforms$HeldItemSupplier");
+            java.lang.reflect.Constructor<?> make = supplier.getDeclaredConstructor(net.minecraft.world.InteractionHand.class,
+                    it.unimi.dsi.fastutil.objects.Object2IntFunction.class, boolean.class);
+            make.setAccessible(true);
+            Object held = make.newInstance(net.minecraft.world.InteractionHand.MAIN_HAND,
+                    (it.unimi.dsi.fastutil.objects.Object2IntFunction<Object>) key -> -1, false);
+            java.lang.reflect.Method update = supplier.getDeclaredMethod("update");
+            update.setAccessible(true);
+            update.invoke(held);
+            java.lang.reflect.Method value = supplier.getDeclaredMethod("getLightValue");
+            java.lang.reflect.Method color = supplier.getDeclaredMethod("getLightColor");
+            value.setAccessible(true);
+            color.setAccessible(true);
+            org.joml.Vector3f rgb = (org.joml.Vector3f) color.invoke(held);
+            return value.invoke(held) + " color=" + String.format("#%02X%02X%02X",
+                    Math.round(rgb.x * 255), Math.round(rgb.y * 255), Math.round(rgb.z * 255));
+        } catch (ReflectiveOperationException | LinkageError e) {
             return "n/a (" + e + ")";
         }
     }

@@ -217,9 +217,23 @@ public final class SpectralEnchantmentsGameTests {
                 SpectralConfig.branchFindingTreasureOnly(), Items.IRON_HOE);
         checkAvailability(helper, ModEnchantments.SPRINGY, SpectralConfig.springyEnabled(),
                 SpectralConfig.springyTreasureOnly(), Items.DIAMOND_BOOTS);
+        checkAvailability(helper, ModEnchantments.ALARMING, SpectralConfig.alarmingEnabled(),
+                SpectralConfig.alarmingTreasureOnly(), Items.DIAMOND_SWORD);
         // Curses are always treasure, as vanilla's are.
         checkAvailability(helper, ModEnchantments.POSSESSION_CURSE, SpectralConfig.possessionCurseEnabled(), true, Items.DIAMOND_SWORD);
         checkAvailability(helper, ModEnchantments.HAUNTING_CURSE, SpectralConfig.hauntingCurseEnabled(), true, Items.DIAMOND_CHESTPLATE);
+        helper.succeed();
+    }
+
+    /** Alarming is Sting's enchantment: swords take it, other weapons don't. */
+    @GameTest(template = "empty")
+    public static void alarmingFitsSwordsOnly(GameTestHelper helper) {
+        Holder<Enchantment> holder = helper.getLevel().registryAccess().lookupOrThrow(Registries.ENCHANTMENT)
+                .getOrThrow(ModEnchantments.ALARMING);
+        boolean enabled = SpectralConfig.alarmingEnabled();
+        helper.assertTrue(new ItemStack(Items.IRON_SWORD).supportsEnchantment(holder) == enabled, "Swords should take Alarming");
+        helper.assertFalse(new ItemStack(Items.IRON_AXE).supportsEnchantment(holder), "Axes shouldn't take Alarming");
+        helper.assertFalse(new ItemStack(Items.TRIDENT).supportsEnchantment(holder), "Tridents shouldn't take Alarming");
         helper.succeed();
     }
 

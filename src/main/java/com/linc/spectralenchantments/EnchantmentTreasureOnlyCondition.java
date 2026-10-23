@@ -30,6 +30,7 @@ public record EnchantmentTreasureOnlyCondition(EnchantmentEnabledCondition.Which
             case POSSESSION_CURSE, HAUNTING_CURSE -> false;
             case HIGH_JUMP -> SpectralConfig.highJumpEnabled() && SpectralConfig.highJumpTreasureOnly();
             case SPRINGY -> SpectralConfig.springyEnabled() && SpectralConfig.springyTreasureOnly();
+            case ALARMING -> SpectralConfig.alarmingEnabled() && SpectralConfig.alarmingTreasureOnly();
         };
     }
 

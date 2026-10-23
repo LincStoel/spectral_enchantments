@@ -326,6 +326,35 @@
             "enchantment": "springy"
           }
         ]
+      },
+      {
+        "formats": {
+          "min_inclusive": 0,
+          "max_inclusive": 2147483647
+        },
+        "directory": "overlay_disable_alarming",
+        "neoforge:conditions": [
+          {
+            "type": "neoforge:not",
+            "value": {
+              "type": "spectral_enchantments:enchantment_enabled",
+              "enchantment": "alarming"
+            }
+          }
+        ]
+      },
+      {
+        "formats": {
+          "min_inclusive": 0,
+          "max_inclusive": 2147483647
+        },
+        "directory": "overlay_treasure_alarming",
+        "neoforge:conditions": [
+          {
+            "type": "spectral_enchantments:enchantment_treasure_only",
+            "enchantment": "alarming"
+          }
+        ]
       }
     ]
   }

@@ -1,6 +1,6 @@
 # Spectral Enchantments
 
-A NeoForge mod adding ten enchantments and two curses. The theme of the mod centers around spectral copies of items and entities that aid or harm the player. Additionally, this mod hides curses until equipped meaning that you might actually interact with cursed items instead of just treating them as junk.
+A NeoForge mod adding eleven enchantments and two curses. The theme of the mod centers around spectral copies of items and entities that aid or harm the player. Additionally, this mod hides curses until equipped meaning that you might actually interact with cursed items instead of just treating them as junk.
 
 - Minecraft 1.21.1
 - NeoForge 21.1.255 or later
@@ -20,6 +20,7 @@ A NeoForge mod adding ten enchantments and two curses. The theme of the mod cent
 | Doppelganger | Chestplates | I | Protection | Yes |
 | High Jump | Boots | III | — | Yes |
 | Springy | Boots | I | Feather Falling | No |
+| Alarming | Swords | I | — | Yes |
 | Curse of Possession | Melee weapons | I | — | Always |
 | Curse of Haunting | Armor | I | — | Always |
 
@@ -152,6 +153,16 @@ Bounce off the ground instead of breaking your legs.
 - While falling, a translucent ghost slime gathers from slime flecks around the player's boots. It squashes and springs each time they land and bounce, and bursts in a splash once they land without bouncing. It keeps a slime's own green unless the boots carry a Quark rune.
 - The minimum fall, bounce heights, timing window and fastest bounce are configurable.
 
+### Alarming
+
+Like Sting, it glows blue when orcs are near.
+
+- While a monster is within 16 blocks of the player (configurable), every sword with Alarming they carry glows light blue and buzzes: a short jiggle, then a pause. The closer the nearest monster, the brighter the glow and the shorter the pause.
+- It senses monsters through walls. Anything the game treats as a monster counts (zombies, spiders, slimes, ghasts, phantoms, endermen, piglins and so on); passive and most neutral mobs don't. Entity types in the `spectral_enchantments:alarming/ignored` tag (empty by default) never set it off.
+- The glow shows on the sword's icon in the hotbar and inventory, and on the sword in hand in first and third person. Only the player's own swords glow, and only for them.
+- With an Iris shaderpack that has handheld lighting, the sword in hand also lights up its surroundings like a held torch, in the glow colour: up to light level 8 with a monster right beside the player, fading to nothing at the edge of the radius. Packs that read Iris's held light colour show it blue; others use their own torch colour.
+- The glow colour and the shader light's maximum are set in the client config.
+
 ### Curse of Possession
 
 The evil alter ego of the animated weapon enchantment.
@@ -226,7 +237,7 @@ A book that catalogues the enchanted books in your library. Crafted from a book 
 | Snow | Far Miner |
 | Jungle | Branch Finding |
 | Taiga (special) | Animated |
-| Taiga | Doppelganger |
+| Taiga | Doppelganger, Alarming |
 | Savanna | Catapulting, High Jump |
 | Desert | Explosive Bolts |
 | Swamp | Curse of Possession, Curse of Haunting, Springy |
@@ -268,6 +279,7 @@ Also `enchantmentStudy.enabled` (turns off studying and copying), `enchantmentSt
 | `doppelganger` | `lureRadius` 16, `maxDistance` 32, `cooldownTicks` 20, `emoteMinSeconds` 5, `emoteMaxSeconds` 20 |
 | `highJump` | `heights` [2.0, 3.0, 4.0] (1.25 to 16), `chargeTimeoutTicks` 60 |
 | `springy` | `minFallDistance` 3.0, `restitution` 0.75, `perfectRestitution` 0.95, `perfectWindowTicks` 3, `maxBounceSpeed` 2.0 |
+| `alarming` | `radius` 16 (2 to 32) |
 | `curses` | `hideUntilHeld` true, `cursedSeconds` 60 |
 | `possessionCurse` | `healthPerDurability` 0.05, `minHealth` 6, `maxHealth` 40, `healthPerHardness` 4.0, `itemHealth` 1.0, `armor` 2.0, `damageMultiplier` 1.0, `dropChance` 0.1, `dropDurability` 0.05 |
 | `hauntingCurse` | `appearMinSeconds` 180, `appearMaxSeconds` 480, `stareSeconds` 30, `stareMinDistance` 12, `stareMaxDistance` 20, `approachDistance` 8, `vanishDistance` 32, `monsterRadius` 16, `buffRadius` 5, `buffLevel` 1, `buffSeconds` 15, `banishMinSeconds` 10, `banishMaxSeconds` 20, `castMinSeconds` 4, `castMaxSeconds` 10, `monsterGhosts` true, `monsterGhostCap` 4, `netherChance` 0.02 |
@@ -276,7 +288,7 @@ Also `enchantmentStudy.enabled` (turns off studying and copying), `enchantmentSt
 
 Invalid values are reset to their defaults.
 
-**Client** (`config/spectral_enchantments-client.toml`): `shaderBrightness` 0.5. This sets the brightness of ghost tools and weapons while an Iris shaderpack is active. `enchantingIndex.glowSeconds` 30 and `enchantingIndex.glowThroughWalls` true set how long a book picked in the Enchanting Index glows and whether it shows through walls.
+**Client** (`config/spectral_enchantments-client.toml`): `shaderBrightness` 0.5. This sets the brightness of ghost tools and weapons while an Iris shaderpack is active. `enchantingIndex.glowSeconds` 30 and `enchantingIndex.glowThroughWalls` true set how long a book picked in the Enchanting Index glows and whether it shows through walls. `alarming.glowColor` `#7CD3FF` is the colour Alarming swords glow, and `alarming.shaderLight` 8 (0 to 15, 0 turns it off) is the most light one in hand gives off under an Iris shaderpack.
 
 ## Optional dependencies
 

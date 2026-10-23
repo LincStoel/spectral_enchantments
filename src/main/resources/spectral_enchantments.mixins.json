@@ -9,7 +9,9 @@
     "SlotMixin"
   ],
   "client": [
-    "client.HumanoidModelMixin"
+    "client.HumanoidModelMixin",
+    "client.IrisHeldItemSupplierMixin",
+    "client.ItemRendererMixin"
   ],
   "injectors": {
     "defaultRequire": 1

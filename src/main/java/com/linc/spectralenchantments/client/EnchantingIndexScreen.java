@@ -158,6 +158,12 @@ final class EnchantingIndexScreen extends Screen {
         sortRows();
     }
 
+    /** Doesn't pause singleplayer, so the index's cooldown runs down while the page is open, as it does on a server. */
+    @Override
+    public boolean isPauseScreen() {
+        return false;
+    }
+
     private static ResourceLocation sprite(String name) {
         return SpectralEnchantments.id("enchanting_index/" + name);
     }

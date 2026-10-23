@@ -58,6 +58,7 @@ public final class SpectralEnchantmentsClient {
             SpringyClient.tick();
             EnchantingIndexClient.tick();
             IndexLecternRenderer.tick();
+            AlarmingClient.tick();
         });
         NeoForge.EVENT_BUS.addListener(StudyClient::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(StudyClient::onRenderHand);

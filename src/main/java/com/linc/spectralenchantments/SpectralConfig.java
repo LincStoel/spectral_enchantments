@@ -19,7 +19,7 @@ import net.neoforged.neoforge.common.ModConfigSpec;
  *       duration, search limit and cooldown, Animated's follow range, radii, deployment time and recall distance, Catapulting's
  *       durability costs, item damage and block placing, Explosive Bolts' fire spray and explosion, Doppelganger's
  *       lure radius, range, cooldown and emote timing, how curses are revealed and how long the Cursed effect lasts, the Curse of Possession's possessed weapons, and the
- *       Curse of Haunting's ghost, High Jump's heights and charge timeout, Springy's bounce, and the curse chances, experience costs and timing of studying and copying
+ *       Curse of Haunting's ghost, High Jump's heights and charge timeout, Springy's bounce, Alarming's radius, and the curse chances, experience costs and timing of studying and copying
  *       enchantments at a lectern, and the Enchanting Index's search ranges, shelf limit and cooldown.</li>
  * </ul>
  */
@@ -68,6 +68,8 @@ public final class SpectralConfig {
     private static final ModConfigSpec.BooleanValue HIGH_JUMP_TREASURE_ONLY;
     private static final ModConfigSpec.BooleanValue SPRINGY_ENABLED;
     private static final ModConfigSpec.BooleanValue SPRINGY_TREASURE_ONLY;
+    private static final ModConfigSpec.BooleanValue ALARMING_ENABLED;
+    private static final ModConfigSpec.BooleanValue ALARMING_TREASURE_ONLY;
     private static final ModConfigSpec.BooleanValue STUDY_ENABLED;
     private static final ModConfigSpec.BooleanValue STUDYING_ENABLED;
     private static final ModConfigSpec.BooleanValue COPYING_ENABLED;
@@ -139,6 +141,7 @@ public final class SpectralConfig {
     private static final ModConfigSpec.DoubleValue SPRINGY_PERFECT_RESTITUTION;
     private static final ModConfigSpec.IntValue SPRINGY_PERFECT_WINDOW;
     private static final ModConfigSpec.DoubleValue SPRINGY_MAX_SPEED;
+    private static final ModConfigSpec.IntValue ALARMING_RADIUS;
     private static final ModConfigSpec.DoubleValue STUDYING_CURSE_CHANCE_MAX;
     private static final ModConfigSpec.DoubleValue STUDYING_CURSE_CHANCE_MIN;
     private static final ModConfigSpec.IntValue STUDYING_CURSE_CHANCE_MIN_LEVEL;
@@ -301,6 +304,19 @@ public final class SpectralConfig {
                 .translation("spectral_enchantments.configuration.springy.treasure_only")
                 .worldRestart()
                 .define("springy.treasure_only", false);
+        ALARMING_ENABLED = common
+                .comment("Whether Alarming can be obtained and works. When false it stays registered (so enchanted items",
+                        "keep it) but does nothing and no longer turns up in enchanting tables, loot, trades or recipes.",
+                        "Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.alarming.enabled")
+                .worldRestart()
+                .define("alarming.enabled", true);
+        ALARMING_TREASURE_ONLY = common
+                .comment("If true, this enchantment is treasure-only: it can't be rolled at the enchanting table and is found",
+                        "the way Mending is (treasure loot, villager trades). Takes effect after a restart or /reload.")
+                .translation("spectral_enchantments.configuration.alarming.treasure_only")
+                .worldRestart()
+                .define("alarming.treasure_only", true);
         STUDY_ENABLED = common
                 .comment("Whether enchantments can be studied or copied at a lectern at all. When false neither works, whatever",
                         "their own settings say.")
@@ -634,6 +650,10 @@ public final class SpectralConfig {
                         "players into unloaded chunks.")
                 .translation("spectral_enchantments.configuration.springy.maxBounceSpeed")
                 .defineInRange(List.of("springy", "maxBounceSpeed"), 2.0, 0.1, 10.0);
+        ALARMING_RADIUS = server
+                .comment("How close a monster must be, in blocks, for an Alarming sword the player carries to glow and buzz.")
+                .translation("spectral_enchantments.configuration.alarming.radius")
+                .defineInRange(List.of("alarming", "radius"), 16, 2, 32);
         STUDYING_CURSE_CHANCE_MAX = server
                 .comment("The chance, from 0 to 1, that studying an item at level 0 writes a random curse instead of its enchantment.",
                         "The chance falls in a straight line from this to curseChanceMin as the player's level rises to",
@@ -844,6 +864,14 @@ public final class SpectralConfig {
 
     public static boolean springyEnabled() {
         return COMMON_SPEC.isLoaded() ? SPRINGY_ENABLED.get() : SPRINGY_ENABLED.getDefault();
+    }
+
+    public static boolean alarmingTreasureOnly() {
+        return COMMON_SPEC.isLoaded() ? ALARMING_TREASURE_ONLY.get() : ALARMING_TREASURE_ONLY.getDefault();
+    }
+
+    public static boolean alarmingEnabled() {
+        return COMMON_SPEC.isLoaded() ? ALARMING_ENABLED.get() : ALARMING_ENABLED.getDefault();
     }
 
     /** Whether enchanted items can be studied at a lectern: enchantment study and studying both on. */
@@ -1065,6 +1093,11 @@ public final class SpectralConfig {
     /** The fastest a Springy bounce launches, in blocks per tick. */
     public static double springyMaxBounceSpeed() {
         return SERVER_SPEC.isLoaded() ? SPRINGY_MAX_SPEED.get() : SPRINGY_MAX_SPEED.getDefault();
+    }
+
+    /** How near a monster sets off an Alarming sword, in blocks. */
+    public static int alarmingRadius() {
+        return SERVER_SPEC.isLoaded() ? ALARMING_RADIUS.get() : ALARMING_RADIUS.getDefault();
     }
 
     /** Whether curses stay out of tooltips until the item has been in a player's inventory. */

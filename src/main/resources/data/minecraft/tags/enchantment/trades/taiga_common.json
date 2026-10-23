@@ -2,6 +2,8 @@
   "replace": false,
   "values": [
     "#spectral_enchantments:non_treasure/doppelganger",
-    "#spectral_enchantments:treasure_only/doppelganger"
+    "#spectral_enchantments:treasure_only/doppelganger",
+    "#spectral_enchantments:non_treasure/alarming",
+    "#spectral_enchantments:treasure_only/alarming"
   ]
 }

@@ -37,6 +37,8 @@ public final class ModEnchantments {
             ResourceKey.create(Registries.ENCHANTMENT, SpectralEnchantments.id("high_jump"));
     public static final ResourceKey<Enchantment> SPRINGY =
             ResourceKey.create(Registries.ENCHANTMENT, SpectralEnchantments.id("springy"));
+    public static final ResourceKey<Enchantment> ALARMING =
+            ResourceKey.create(Registries.ENCHANTMENT, SpectralEnchantments.id("alarming"));
 
     /**
      * Enchantments switched off in the common config. Filled by the {@code overlay_disable_<name>} pack overlays, so

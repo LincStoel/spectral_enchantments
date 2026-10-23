@@ -7,7 +7,7 @@ the scenarios, taking screenshots and probing client state. Results:
   run-compat/bot{1,2}/harness-*.txt   client events and probes
 
     python tools/compat/run_compat.py              # everything
-    python tools/compat/run_compat.py vanilla ars  # chosen scenarios (vanilla, iris, ars, sneak, spectral, doppelganger, haunting, study, index, branch)
+    python tools/compat/run_compat.py vanilla ars  # chosen scenarios (vanilla, iris, ars, sneak, spectral, doppelganger, haunting, study, index, branch, alarming)
 """
 import pathlib
 import re
@@ -1120,10 +1120,95 @@ def scenario_branch(s):
     s.c("clear Bot1", quiet=True)
 
 
+def alarmed_count(s, label):
+    s.do("Bot1", "probe", label)
+    time.sleep(0.6)
+    m = re.search(r"alarmed=(\d+)", last_probe("Bot1"))
+    return int(m.group(1)) if m else -1
+
+
+def held_light(s, label):
+    """Bot1's main-hand light value and colour as Iris computes them, or None."""
+    s.do("Bot1", "probe", label)
+    time.sleep(0.6)
+    m = re.search(r"irisHeldLight=(\d+) color=(#[0-9A-F]{6})", last_probe("Bot1"))
+    return (int(m.group(1)), m.group(2)) if m else None
+
+
+def alarming_shots(s, prefix, count=6):
+    """Screenshots Bot1 a few times over a buzz cycle or two (each shot takes about 1.5 seconds)."""
+    for i in range(count):
+        s.do("Bot1", "shot", f"{prefix}-{i}")
+        time.sleep(0.35)
+
+
+def scenario_alarming(s):
+    """Alarming: a sword in hand and one in the hotbar glow and buzz while a monster is near, and stop once it's gone."""
+    spectral_stage(s)
+    s.c("difficulty easy", quiet=True)  # peaceful deletes the zombies on spawn
+    sword = '[minecraft:enchantments={levels:{"spectral_enchantments:alarming":1}}]'
+    s.c(f"item replace entity Bot1 hotbar.0 with minecraft:iron_sword{sword}", quiet=True)
+    s.c(f"item replace entity Bot1 hotbar.2 with minecraft:diamond_sword{sword}", quiet=True)
+    s.c("item replace entity Bot1 hotbar.1 with minecraft:iron_sword", quiet=True)
+    s.do("Bot1", "slot", "0")
+    s.do("Bot1", "hud", "on")
+    time.sleep(2)
+    check(alarmed_count(s, "alarming-calm") == 0, "[alarming] no glow with no monster near")
+    shot(s, "Bot1", "alarming-calm")
+    calm_light = held_light(s, "alarming-calm-light")
+    check(calm_light is not None and calm_light[0] == 0, f"[alarming] no held light with no monster near ({calm_light})")
+    # At the edge of the radius, then close.
+    summon_target(s, "zombie", 0.5, 14.5, tag="al_far")
+    time.sleep(1)
+    n = alarmed_count(s, "alarming-far")
+    check(n == 2, f"[alarming] both Alarming swords (not the plain one) glow with a zombie 7 blocks off ({n})")
+    alarming_shots(s, "alarming-far")
+    s.c("kill @e[tag=al_far]", quiet=True)
+    summon_target(s, "zombie", 0.5, 9.5, tag="al_near")
+    time.sleep(1)
+    alarming_shots(s, "alarming-near")
+    # The sword in hand lights up under shaders through Iris's held-light uniforms (0 to 8, nearer is brighter).
+    near_light = held_light(s, "alarming-near-light")
+    check(near_light is not None and near_light[0] > 0 and near_light[1] == "#7CD3FF",
+          f"[alarming] the sword in hand gives off blue held light with a zombie near ({near_light})")
+    s.do("Bot1", "inventory", "open")
+    time.sleep(1)
+    alarming_shots(s, "alarming-inventory", 3)
+    s.do("Bot1", "inventory", "close")
+    # Through a wall: Sting senses what it can't see.
+    s.c("fill -3 0 8 3 4 8 minecraft:stone", quiet=True)
+    time.sleep(1)
+    check(alarmed_count(s, "alarming-wall") == 2, "[alarming] still glows with the zombie behind a wall")
+    s.c("fill -3 0 8 3 4 8 air", quiet=True)
+    # Night, where the lit blade matters most, then under shaders.
+    s.c("time set midnight", quiet=True)
+    time.sleep(1)
+    alarming_shots(s, "alarming-night", 3)
+    s.do("Bot1", "iris", "on")
+    time.sleep(25)
+    alarming_shots(s, "alarming-iris-night", 4)
+    s.c("time set noon", quiet=True)
+    time.sleep(1)
+    alarming_shots(s, "alarming-iris-day", 3)
+    s.do("Bot1", "iris", "off")
+    time.sleep(5)
+    s.c("kill @e[tag=al_near]", quiet=True)
+    time.sleep(1)
+    check(alarmed_count(s, "alarming-gone") == 0, "[alarming] the glow stops once the monster is gone")
+    # Passive mobs don't count.
+    s.c("summon minecraft:cow 0.5 0 9.5 {NoAI:1b,Tags:[\"sw_any\"]}", quiet=True)
+    time.sleep(1)
+    check(alarmed_count(s, "alarming-cow") == 0, "[alarming] a cow doesn't set it off")
+    s.do("Bot1", "hud", "off")
+    s.c("kill @e[tag=sw_any]", quiet=True)
+    s.c("clear Bot1", quiet=True)
+    s.c("difficulty peaceful", quiet=True)
+
+
 SCENARIOS = {"debug": scenario_debug, "vanilla": scenario_vanilla, "iris": scenario_iris, "ars": scenario_ars,
              "sneak": scenario_sneak, "spectral": scenario_spectral,
              "doppelganger": scenario_doppelganger, "haunting": scenario_haunting, "study": scenario_study,
-             "index": scenario_index, "branch": scenario_branch}
+             "index": scenario_index, "branch": scenario_branch, "alarming": scenario_alarming}
 
 
 def main():

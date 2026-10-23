@@ -28,7 +28,8 @@ public record EnchantmentEnabledCondition(Which enchantment) implements IConditi
         POSSESSION_CURSE("possession_curse"),
         HAUNTING_CURSE("haunting_curse"),
         HIGH_JUMP("high_jump"),
-        SPRINGY("springy");
+        SPRINGY("springy"),
+        ALARMING("alarming");
 
         static final Codec<Which> CODEC = StringRepresentable.fromEnum(Which::values);
 
@@ -59,6 +60,7 @@ public record EnchantmentEnabledCondition(Which enchantment) implements IConditi
             case HAUNTING_CURSE -> SpectralConfig.hauntingCurseEnabled();
             case HIGH_JUMP -> SpectralConfig.highJumpEnabled();
             case SPRINGY -> SpectralConfig.springyEnabled();
+            case ALARMING -> SpectralConfig.alarmingEnabled();
         };
     }
 
